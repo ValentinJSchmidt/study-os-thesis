@@ -216,3 +216,25 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# --- Node / frontend ---
+node_modules/
+dist/
+.vite/
+*.tsbuildinfo
+
+# --- Editors / OS ---
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# --- Project-local runtime ---
+# Local secrets / per-host overrides
+.env.local
+.env.*.local
+# Alembic/sqlite scratch files
+*.sqlite3
+*.db
+# uv lockfile is fine to commit; lock cache is not
+.uv-cache/
