@@ -7,7 +7,7 @@ from app.models import ThesisSource
 
 class ThesisCreate(BaseModel):
     title: str = Field(min_length=3, max_length=500)
-    abstract: str = Field(min_length=10)
+    abstract: str = Field(min_length=10, max_length=10000)
     supervisor_id: int | None = None
 
 

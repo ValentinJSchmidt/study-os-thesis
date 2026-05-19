@@ -1,76 +1,69 @@
-import { Link, Navigate, Route, Routes, useNavigate } from "react-router-dom";
+import { Navigate, Route, Routes } from "react-router-dom";
+import type { JSX } from "react";
 import { useAuth } from "./auth/AuthContext";
+
+import AppShell from "./components/AppShell";
+import Dashboard from "./pages/Dashboard";
+import Chat from "./pages/Chat";
+import ChairExplorer from "./pages/ChairExplorer";
+import Proposals from "./pages/Proposals";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
-import SubmitThesis from "./pages/SubmitThesis";
-import Chat from "./pages/Chat";
 import Admin from "./pages/Admin";
-import type { JSX } from "react";
 
-function Nav() {
-  const { user, logout } = useAuth();
-  const nav = useNavigate();
-  return (
-    <div className="nav">
-      <Link to="/">study-os-thesis</Link>
-      {user && <Link to="/chat">Chat</Link>}
-      {user && <Link to="/submit">Submit thesis</Link>}
-      {user?.role === "admin" && <Link to="/admin">Admin</Link>}
-      <div className="spacer" />
-      {user ? (
-        <>
-          <span style={{ color: "#6b7280" }}>{user.email} ({user.role})</span>
-          <button onClick={() => { logout(); nav("/login"); }}>Log out</button>
-        </>
-      ) : (
-        <>
-          <Link to="/login">Log in</Link>
-          <Link to="/register">Register</Link>
-        </>
-      )}
-    </div>
-  );
-}
-
+/** Redirect to /login when unauthenticated; show spinner during hydration. */
 function RequireAuth({ children }: { children: JSX.Element }) {
   const { user, loading } = useAuth();
-  if (loading) return <div className="container">Loading…</div>;
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-10 h-10 rounded-lg bg-primary flex items-center justify-center">
+            <span
+              className="material-symbols-outlined text-on-primary"
+              style={{ fontVariationSettings: "'FILL' 1" }}
+            >
+              school
+            </span>
+          </div>
+          <div className="w-6 h-6 border-2 border-outline-variant border-t-primary rounded-full animate-spin" />
+        </div>
+      </div>
+    );
+  }
+
   if (!user) return <Navigate to="/login" replace />;
   return children;
 }
 
-function Home() {
-  const { user } = useAuth();
-  return (
-    <div className="container">
-      <h1>Find a thesis topic</h1>
-      <p>Chat with an LLM that searches a database of professor- and student-submitted theses.</p>
-      {user ? (
-        <p>
-          <Link to="/chat">Start a chat</Link> ·{" "}
-          <Link to="/submit">Submit a thesis</Link>
-        </p>
-      ) : (
-        <p>
-          <Link to="/register">Register</Link> or <Link to="/login">log in</Link> to begin.
-        </p>
-      )}
-    </div>
-  );
-}
-
 export default function App() {
   return (
-    <>
-      <Nav />
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
-        <Route path="/submit" element={<RequireAuth><SubmitThesis /></RequireAuth>} />
-        <Route path="/chat" element={<RequireAuth><Chat /></RequireAuth>} />
-        <Route path="/admin" element={<RequireAuth><Admin /></RequireAuth>} />
-      </Routes>
-    </>
+    <Routes>
+      {/* Public routes */}
+      <Route path="/login" element={<Login />} />
+      <Route path="/register" element={<Register />} />
+
+      {/* Root redirect */}
+      <Route path="/" element={<Navigate to="/dashboard" replace />} />
+
+      {/* Protected routes — all wrapped in AppShell (sidebar + topbar layout) */}
+      <Route
+        element={
+          <RequireAuth>
+            <AppShell />
+          </RequireAuth>
+        }
+      >
+        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/chat" element={<Chat />} />
+        <Route path="/chairs" element={<ChairExplorer />} />
+        <Route path="/proposals" element={<Proposals />} />
+        <Route path="/admin" element={<Admin />} />
+      </Route>
+
+      {/* Fallback */}
+      <Route path="*" element={<Navigate to="/dashboard" replace />} />
+    </Routes>
   );
 }

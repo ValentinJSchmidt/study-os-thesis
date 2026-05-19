@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import type { Role } from "../auth/AuthContext";
 
@@ -18,7 +18,7 @@ export default function Register() {
     setBusy(true);
     try {
       await register(email, password, role);
-      nav("/chat");
+      nav("/dashboard");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Registration failed");
     } finally {
@@ -27,33 +27,139 @@ export default function Register() {
   }
 
   return (
-    <div className="container">
-      <h1>Register</h1>
-      {error && <div className="error">{error}</div>}
-      <form onSubmit={onSubmit}>
-        <div className="form-row">
-          <label>Email</label>
-          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+      <div className="w-full max-w-md">
+        {/* Logo */}
+        <div className="flex items-center justify-center gap-3 mb-8">
+          <div className="w-10 h-10 rounded-lg bg-primary flex items-center justify-center">
+            <span
+              className="material-symbols-outlined text-on-primary"
+              style={{ fontVariationSettings: "'FILL' 1" }}
+            >
+              school
+            </span>
+          </div>
+          <div>
+            <h1 className="text-headline-md font-headline-md font-bold text-primary tracking-tight">
+              ScholarAI
+            </h1>
+            <p className="font-label-md text-label-md text-on-surface-variant uppercase tracking-widest">
+              Academic Excellence
+            </p>
+          </div>
         </div>
-        <div className="form-row">
-          <label>Password (min 8 chars)</label>
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            minLength={8}
-          />
+
+        {/* Card */}
+        <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-8 ambient-shadow">
+          <h2 className="font-headline-md text-headline-md text-on-surface font-semibold mb-1">
+            Konto erstellen
+          </h2>
+          <p className="font-body-sm text-body-sm text-on-surface-variant mb-6">
+            Starte deine akademische Forschungsreise mit ScholarAI.
+          </p>
+
+          {error && (
+            <div className="bg-error-container text-on-error-container border border-error/30 rounded-lg px-4 py-3 mb-4 font-body-sm text-body-sm">
+              {error}
+            </div>
+          )}
+
+          <form onSubmit={onSubmit} className="flex flex-col gap-4">
+            <div>
+              <label className="block font-label-md text-label-md text-on-surface-variant uppercase tracking-wider mb-2">
+                E-Mail
+              </label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                placeholder="student@university.de"
+                className="w-full border border-outline-variant rounded-lg py-3 px-4 font-body-md text-body-md text-on-surface bg-surface focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all placeholder:text-on-surface-variant/60"
+              />
+            </div>
+
+            <div>
+              <label className="block font-label-md text-label-md text-on-surface-variant uppercase tracking-wider mb-2">
+                Passwort{" "}
+                <span className="normal-case tracking-normal font-normal text-on-surface-variant/70">
+                  (min. 8 Zeichen)
+                </span>
+              </label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                minLength={8}
+                placeholder="••••••••"
+                className="w-full border border-outline-variant rounded-lg py-3 px-4 font-body-md text-body-md text-on-surface bg-surface focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all placeholder:text-on-surface-variant/60"
+              />
+            </div>
+
+            <div>
+              <label className="block font-label-md text-label-md text-on-surface-variant uppercase tracking-wider mb-2">
+                Rolle
+              </label>
+              <div className="flex gap-3">
+                {(["student", "professor"] as Role[]).map((r) => (
+                  <button
+                    key={r}
+                    type="button"
+                    onClick={() => setRole(r)}
+                    className={`flex-1 py-3 px-4 rounded-lg border font-label-md text-label-md transition-all capitalize ${
+                      role === r
+                        ? "bg-primary text-on-primary border-primary"
+                        : "border-outline-variant text-on-surface-variant hover:border-primary hover:text-primary bg-surface"
+                    }`}
+                  >
+                    {r === "student" ? (
+                      <span className="flex items-center justify-center gap-2">
+                        <span className="material-symbols-outlined text-[16px]">
+                          school
+                        </span>
+                        Student
+                      </span>
+                    ) : (
+                      <span className="flex items-center justify-center gap-2">
+                        <span className="material-symbols-outlined text-[16px]">
+                          person
+                        </span>
+                        Professor
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={busy}
+              className="w-full bg-primary text-on-primary font-label-md text-label-md py-3 rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 mt-2 flex items-center justify-center gap-2"
+            >
+              {busy ? (
+                <>
+                  <span className="w-4 h-4 border-2 border-on-primary/30 border-t-on-primary rounded-full animate-spin" />
+                  Konto wird erstellt…
+                </>
+              ) : (
+                "Konto erstellen"
+              )}
+            </button>
+          </form>
+
+          <p className="text-center font-body-sm text-body-sm text-on-surface-variant mt-6">
+            Bereits registriert?{" "}
+            <Link
+              to="/login"
+              className="text-primary font-semibold hover:underline"
+            >
+              Jetzt anmelden
+            </Link>
+          </p>
         </div>
-        <div className="form-row">
-          <label>Role</label>
-          <select value={role} onChange={(e) => setRole(e.target.value as Role)}>
-            <option value="student">Student</option>
-            <option value="professor">Professor</option>
-          </select>
-        </div>
-        <button type="submit" disabled={busy}>{busy ? "…" : "Create account"}</button>
-      </form>
+      </div>
     </div>
   );
 }

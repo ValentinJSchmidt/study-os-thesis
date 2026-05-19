@@ -55,10 +55,7 @@ python -c "import secrets; print(f'JWT_SECRET={secrets.token_urlsafe(32)}')" \
 uv sync
 uv run alembic upgrade head
 
-# 3. (Optional) create the first admin user
-uv run python scripts/seed_admin.py admin@example.com 'change-me'
-
-# 4. Run the API
+# 3. Run the API
 uv run uvicorn app.main:app --reload
 # → http://localhost:8000/docs
 ```
@@ -82,7 +79,7 @@ following accounts and prompts are what we use locally — feel free to copy the
 |---|---|---|---|
 | `prof@example.com` | `password123` | professor | Submits thesis topics |
 | `stu@example.com`  | `password123` | student   | Chats with the LLM to get recommendations |
-| `admin@example.com` | `change-me` | admin | (created via `seed_admin.py`) lists users |
+
 
 **Step 1 — register them.** Either through the React UI at
 `http://localhost:5173/register`, or via Swagger at `http://localhost:8000/docs`
@@ -156,7 +153,7 @@ backend/
     schemas/         Pydantic in/out models
     tools/           search_theses (pgvector cosine search)
   alembic/           DB migrations
-  scripts/           seed_admin, check_ollama, check_search
+  scripts/           check_ollama, check_search
 frontend/
   src/
     api/             fetch wrapper + JWT handling

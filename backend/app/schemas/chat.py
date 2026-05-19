@@ -1,7 +1,6 @@
 from datetime import datetime
-from typing import Any
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.models import MessageRole
 
@@ -15,7 +14,7 @@ class SessionOut(BaseModel):
 
 
 class MessageIn(BaseModel):
-    content: str
+    content: str = Field(min_length=1, max_length=4000)
 
 
 class MessageOut(BaseModel):

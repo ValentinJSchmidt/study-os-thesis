@@ -16,6 +16,9 @@ class Settings(BaseSettings):
     ollama_host: str = Field("http://localhost:11434", alias="OLLAMA_HOST")
     ollama_chat_model: str = Field("llama3.1:8b", alias="OLLAMA_CHAT_MODEL")
     ollama_embed_model: str = Field("nomic-embed-text", alias="OLLAMA_EMBED_MODEL")
+    # Must match the output dimension of OLLAMA_EMBED_MODEL.
+    # Common values: nomic-embed-text=768, mxbai-embed-large=1024, all-minilm=384
+    ollama_embed_dim: int = Field(768, alias="OLLAMA_EMBED_DIM")
 
     cors_origins: str = Field("http://localhost:5173", alias="CORS_ORIGINS")
 

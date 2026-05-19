@@ -1,5 +1,7 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../api/client";
+import TopBar from "../components/TopBar";
+import PaperCard, { type Paper } from "../components/PaperCard";
 
 type Role = "user" | "assistant" | "tool" | "system";
 
@@ -15,6 +17,42 @@ type Message = {
 
 type Session = { id: number; user_id: number; created_at: string };
 
+// Mock ArXiv paper cards for the right sidebar
+const MOCK_PAPERS: Paper[] = [
+  {
+    id: "1",
+    category: "ArXiv • CS.AI",
+    title: "Emergent Abilities in Large Language Models: A Critical Review",
+    abstract:
+      "This paper investigates the phenomenon of emergent abilities in LLMs, challenging previous assumptions with new metrics and rigorous statistical analysis across multiple benchmarks.",
+    aiInsight:
+      "Highly relevant to your statistics background. Introduces a novel framework for evaluating model performance stability.",
+  },
+  {
+    id: "2",
+    category: "ArXiv • STAT.ML",
+    title:
+      "Probabilistic Inference in High-Dimensional Spaces for Robotics",
+    abstract:
+      "We propose a new sampling method that significantly reduces computational overhead when dealing with complex, high-dimensional state spaces in autonomous robotic systems.",
+    authors: "Chen, et al.",
+    daysAgo: 2,
+  },
+  {
+    id: "3",
+    category: "ArXiv • CS.LG",
+    title: "Scalable Self-Supervised Learning for Scientific Graphs",
+    abstract:
+      "A contrastive learning framework tailored for molecular and citation graphs that achieves state-of-the-art results with minimal labeled data.",
+    authors: "Müller, et al.",
+    daysAgo: 5,
+  },
+];
+
+function formatTime(iso: string) {
+  return new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
 export default function Chat() {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [active, setActive] = useState<number | null>(null);
@@ -22,6 +60,7 @@ export default function Chat() {
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const loadSessions = useCallback(async () => {
     const list = await api<Session[]>("/api/chat/sessions");
@@ -29,7 +68,9 @@ export default function Chat() {
     if (!active && list.length > 0) setActive(list[0].id);
   }, [active]);
 
-  useEffect(() => { void loadSessions(); }, [loadSessions]);
+  useEffect(() => {
+    void loadSessions();
+  }, [loadSessions]);
 
   useEffect(() => {
     if (active === null) {
@@ -40,9 +81,17 @@ export default function Chat() {
     (async () => {
       const msgs = await api<Message[]>(`/api/chat/sessions/${active}/messages`);
       if (!cancelled) setMessages(msgs);
-    })().catch((err) => setError(err instanceof Error ? err.message : "Load failed"));
-    return () => { cancelled = true; };
+    })().catch((err) =>
+      setError(err instanceof Error ? err.message : "Load failed"),
+    );
+    return () => {
+      cancelled = true;
+    };
   }, [active]);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, busy]);
 
   async function newSession() {
     setError(null);
@@ -71,75 +120,254 @@ export default function Chat() {
     }
   }
 
+  const visibleMessages = messages.filter(
+    (m) => m.role === "user" || m.role === "assistant",
+  );
+
   return (
-    <div className="container">
-      <h1>Chat</h1>
-      <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem", flexWrap: "wrap" }}>
-        <button onClick={newSession}>+ New session</button>
-        {sessions.map((s) => (
-          <button
-            key={s.id}
-            onClick={() => setActive(s.id)}
-            style={{ background: s.id === active ? "#e0e7ff" : undefined }}
-          >
-            #{s.id}
-          </button>
-        ))}
-      </div>
+    <div className="flex flex-col h-screen bg-background overflow-hidden">
+      <TopBar title="AI Research Assistant" showSearch={false} />
 
-      {error && <div className="error">{error}</div>}
-
-      {active === null ? (
-        <p>Start a new session to begin.</p>
-      ) : (
-        <>
-          <div style={{ marginBottom: "1rem" }}>
-            {messages.length === 0 && <p style={{ color: "#6b7280" }}>No messages yet.</p>}
-            {messages.map((m) => (
-              <MessageView key={m.id} m={m} />
+      <main className="flex-1 overflow-hidden p-margin-desktop grid grid-cols-12 gap-gutter bg-surface-container-low">
+        {/* Chat panel — left 8 cols */}
+        <div className="col-span-12 lg:col-span-8 flex flex-col bg-surface-container-lowest rounded-xl border border-outline-variant h-full overflow-hidden">
+          {/* Session tabs */}
+          <div className="flex items-center gap-2 px-4 pt-3 pb-2 border-b border-outline-variant overflow-x-auto shrink-0">
+            <button
+              onClick={newSession}
+              className="shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-full bg-primary text-on-primary font-label-md text-label-md hover:bg-primary/90 transition-colors text-[11px]"
+            >
+              <span className="material-symbols-outlined text-[14px]">add</span>
+              New
+            </button>
+            {sessions.map((s) => (
+              <button
+                key={s.id}
+                onClick={() => setActive(s.id)}
+                className={`shrink-0 px-3 py-1.5 rounded-full font-label-md text-[11px] transition-colors
+                  ${s.id === active
+                    ? "bg-primary-fixed text-on-primary-fixed-variant font-bold"
+                    : "border border-outline-variant text-on-surface-variant hover:bg-surface-container-high"
+                  }`}
+              >
+                Session #{s.id}
+              </button>
             ))}
-            {busy && <div className="msg assistant"><div className="role">Assistant</div>…</div>}
           </div>
-          <form onSubmit={send} style={{ display: "flex", gap: "0.5rem" }}>
-            <input
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="What are you interested in?"
-              disabled={busy}
-            />
-            <button type="submit" disabled={busy || !input.trim()}>Send</button>
-          </form>
-        </>
-      )}
+
+          {/* Messages area */}
+          <div className="flex-1 overflow-y-auto p-stack-lg flex flex-col gap-stack-lg">
+            {active === null ? (
+              <div className="flex flex-col items-center justify-center h-full gap-4 text-center">
+                <div className="w-16 h-16 rounded-full bg-primary-container/20 flex items-center justify-center">
+                  <span className="material-symbols-outlined text-[32px] text-primary">
+                    chat_spark
+                  </span>
+                </div>
+                <h3 className="font-title-lg text-title-lg text-on-surface">
+                  AI Research Assistant
+                </h3>
+                <p className="font-body-sm text-body-sm text-on-surface-variant max-w-xs">
+                  Start a new session to begin your research conversation.
+                </p>
+                <button
+                  onClick={newSession}
+                  className="bg-primary text-on-primary font-label-md text-label-md py-2 px-5 rounded-lg hover:bg-primary/90 transition-colors"
+                >
+                  Start New Session
+                </button>
+              </div>
+            ) : (
+              <>
+                {/* Timestamp header */}
+                {messages.length > 0 && (
+                  <div className="flex justify-center">
+                    <span className="font-label-md text-label-md text-on-surface-variant text-xs">
+                      {formatTime(messages[0].created_at)}
+                    </span>
+                  </div>
+                )}
+
+                {/* Welcome AI bubble if empty */}
+                {messages.length === 0 && !busy && (
+                  <div className="flex gap-unit max-w-[85%]">
+                    <div className="w-8 h-8 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center flex-shrink-0 mt-1">
+                      <span className="material-symbols-outlined text-[18px]">smart_toy</span>
+                    </div>
+                    <div className="bg-surface-container rounded-2xl rounded-tl-sm p-stack-md border border-outline-variant shadow-sm ai-glass-panel">
+                      <div className="font-label-md text-label-md mb-unit ai-gradient-text-teal">
+                        ScholarAI Assistant
+                      </div>
+                      <p className="font-body-md text-body-md text-on-surface leading-relaxed">
+                        Hallo! Ich habe dein Transcript analysiert. Du hast starke
+                        Grundlagen in KI und Statistik. Worüber möchtest du heute
+                        mehr erfahren? Ich habe Zugriff auf aktuelle ArXiv-Paper
+                        und Lehrstuhl-Infos.
+                      </p>
+                      <div className="flex flex-wrap gap-unit mt-stack-md">
+                        <button
+                          onClick={() => setInput("Zeig mir aktuelle ArXiv Trends")}
+                          className="font-label-md text-[11px] px-3 py-1.5 rounded-full border border-outline-variant text-on-surface-variant hover:border-primary hover:text-primary transition-colors bg-surface-container-lowest"
+                        >
+                          Show ArXiv trends
+                        </button>
+                        <button
+                          onClick={() => setInput("Erkläre mir spezifische Lehrstühle")}
+                          className="font-label-md text-[11px] px-3 py-1.5 rounded-full border border-outline-variant text-on-surface-variant hover:border-primary hover:text-primary transition-colors bg-surface-container-lowest"
+                        >
+                          Explore specific Lehrstuhl
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {visibleMessages.map((m) => (
+                  <ChatBubble key={m.id} m={m} />
+                ))}
+
+                {/* Tool call details (collapsible) */}
+                {messages
+                  .filter((m) => m.role === "tool")
+                  .map((m) => (
+                    <details
+                      key={m.id}
+                      className="text-[11px] text-on-surface-variant border border-outline-variant rounded-lg px-3 py-2 bg-surface-container"
+                    >
+                      <summary className="cursor-pointer font-label-md">
+                        tool · {m.tool_name ?? "result"}
+                      </summary>
+                      <pre className="mt-2 whitespace-pre-wrap font-mono text-[10px]">
+                        {m.content}
+                      </pre>
+                    </details>
+                  ))}
+
+                {busy && (
+                  <div className="flex gap-unit max-w-[85%]">
+                    <div className="w-8 h-8 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center flex-shrink-0 mt-1">
+                      <span className="material-symbols-outlined text-[18px]">smart_toy</span>
+                    </div>
+                    <div className="bg-surface-container rounded-2xl rounded-tl-sm p-stack-md border border-outline-variant shadow-sm ai-glass-panel">
+                      <div className="font-label-md text-label-md mb-unit ai-gradient-text-teal">
+                        ScholarAI Assistant
+                      </div>
+                      <div className="flex gap-1 items-center">
+                        <span className="w-2 h-2 bg-on-surface-variant rounded-full animate-bounce [animation-delay:0ms]" />
+                        <span className="w-2 h-2 bg-on-surface-variant rounded-full animate-bounce [animation-delay:150ms]" />
+                        <span className="w-2 h-2 bg-on-surface-variant rounded-full animate-bounce [animation-delay:300ms]" />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {error && (
+                  <div className="bg-error-container text-on-error-container border border-error/30 rounded-lg px-4 py-3 font-body-sm text-body-sm">
+                    {error}
+                  </div>
+                )}
+
+                <div ref={messagesEndRef} />
+              </>
+            )}
+          </div>
+
+          {/* Input area */}
+          <div className="p-stack-md border-t border-outline-variant bg-surface-container-lowest shrink-0">
+            <form onSubmit={send} className="relative flex items-center">
+              <input
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                disabled={busy || active === null}
+                placeholder="Forschungsfrage stellen..."
+                className="w-full bg-surface-container border border-outline-variant focus:border-primary rounded-xl py-3 pl-4 pr-12 outline-none font-body-md text-body-md text-on-surface placeholder:text-on-surface-variant transition-colors shadow-inner disabled:opacity-50"
+              />
+              <button
+                type="submit"
+                disabled={busy || !input.trim() || active === null}
+                className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center text-primary hover:bg-surface-container-highest rounded-lg transition-colors disabled:opacity-40"
+              >
+                <span
+                  className="material-symbols-outlined"
+                  style={{ fontVariationSettings: "'FILL' 1" }}
+                >
+                  send
+                </span>
+              </button>
+            </form>
+            <div className="mt-2 flex justify-between items-center px-1">
+              <span className="font-label-md text-[10px] text-on-surface-variant uppercase tracking-wider">
+                AI can make mistakes. Verify important info.
+              </span>
+              <div className="flex gap-2">
+                <button className="text-on-surface-variant hover:text-primary transition-colors">
+                  <span className="material-symbols-outlined text-[16px]">attach_file</span>
+                </button>
+                <button className="text-on-surface-variant hover:text-primary transition-colors">
+                  <span className="material-symbols-outlined text-[16px]">mic</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Sidebar — right 4 cols */}
+        <div className="hidden lg:flex col-span-4 flex-col gap-stack-md overflow-y-auto h-full pr-1">
+          <h3 className="font-title-lg text-title-lg text-on-surface flex items-center gap-2 mb-unit shrink-0">
+            <span className="material-symbols-outlined text-tertiary">trending_up</span>
+            Aktuelle Trends für dich
+          </h3>
+          {MOCK_PAPERS.map((paper) => (
+            <PaperCard key={paper.id} paper={paper} />
+          ))}
+        </div>
+      </main>
     </div>
   );
 }
 
-function MessageView({ m }: { m: Message }) {
-  if (m.role === "tool") {
+function ChatBubble({ m }: { m: Message }) {
+  const isUser = m.role === "user";
+
+  if (isUser) {
     return (
-      <details className="msg tool">
-        <summary>tool · {m.tool_name ?? "result"}</summary>
-        <pre style={{ whiteSpace: "pre-wrap", margin: "0.5rem 0 0" }}>{m.content}</pre>
-      </details>
-    );
-  }
-  if (m.role === "assistant" && m.tool_calls) {
-    return (
-      <div className={`msg assistant`}>
-        <div className="role">Assistant (tool call)</div>
-        {m.content || <em style={{ color: "#6b7280" }}>(no text — calling tool)</em>}
-        <details style={{ marginTop: "0.5rem" }}>
-          <summary>tool_calls</summary>
-          <pre style={{ whiteSpace: "pre-wrap" }}>{JSON.stringify(m.tool_calls, null, 2)}</pre>
-        </details>
+      <div className="flex justify-end">
+        <div className="max-w-[80%] bg-primary text-on-primary rounded-2xl rounded-tr-sm px-4 py-3">
+          <p className="font-body-md text-body-md leading-relaxed">{m.content}</p>
+        </div>
       </div>
     );
   }
+
   return (
-    <div className={`msg ${m.role}`}>
-      <div className="role">{m.role}</div>
-      {m.content}
+    <div className="flex gap-unit max-w-[85%]">
+      <div className="w-8 h-8 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center flex-shrink-0 mt-1">
+        <span className="material-symbols-outlined text-[18px]">smart_toy</span>
+      </div>
+      <div className="bg-surface-container rounded-2xl rounded-tl-sm p-stack-md border border-outline-variant shadow-sm">
+        <div className="font-label-md text-label-md mb-unit ai-gradient-text-teal">
+          ScholarAI Assistant
+        </div>
+        {m.tool_calls ? (
+          <>
+            <p className="font-body-md text-body-md text-on-surface leading-relaxed">
+              {m.content || (
+                <em className="text-on-surface-variant">(calling tool…)</em>
+              )}
+            </p>
+            <details className="mt-2 text-[11px] text-on-surface-variant">
+              <summary className="cursor-pointer">tool_calls</summary>
+              <pre className="mt-1 whitespace-pre-wrap font-mono text-[10px]">
+                {JSON.stringify(m.tool_calls, null, 2)}
+              </pre>
+            </details>
+          </>
+        ) : (
+          <p className="font-body-md text-body-md text-on-surface leading-relaxed whitespace-pre-wrap">
+            {m.content}
+          </p>
+        )}
+      </div>
     </div>
   );
 }

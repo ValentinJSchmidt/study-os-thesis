@@ -9,13 +9,17 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from app.config import get_settings  # noqa: E402
 from app.db import SessionLocal  # noqa: E402
-from app.tools.search_theses import search_theses  # noqa: E402
+from app.llm.ollama_client import OllamaClient  # noqa: E402
+from app.tools.search_theses import search_theses_with_client  # noqa: E402
 
 
 async def main(query: str) -> None:
+    settings = get_settings()
+    client = OllamaClient(host=settings.ollama_host)
     async with SessionLocal() as session:
-        hits = await search_theses(session, query, k=5)
+        hits = await search_theses_with_client(client, settings, query, k=5, session=session)
     for h in hits:
         print(f"[{h['score']:.3f}] {h['id']}: {h['title']}")
         print(f"    {h['abstract'][:120]}...")

@@ -50,7 +50,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = useCallback(async (email: string, password: string) => {
     const tok = await api<{ access_token: string }>("/api/auth/login", {
       method: "POST",
-      form: { username: email, password },
+      json: { email, password },
     });
     setToken(tok.access_token);
     await refresh();
@@ -60,7 +60,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await api("/api/auth/register", { method: "POST", json: { email, password, role } });
     await api<{ access_token: string }>("/api/auth/login", {
       method: "POST",
-      form: { username: email, password },
+      json: { email, password },
     }).then((t) => setToken(t.access_token));
     await refresh();
   }, [refresh]);
