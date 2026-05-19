@@ -158,6 +158,10 @@ setup() {
   else
     info "Migrations up to date — skipping."
   fi
+
+  # -- Seed data (idempotent) ----------------------------------------------- #
+  info "Seeding database (idempotent)..."
+  (cd "$BACKEND_DIR" && PYTHONPATH=. uv run python scripts/seed.py)
 }
 
 # Launch backend + frontend and wait.
