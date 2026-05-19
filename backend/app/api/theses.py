@@ -12,7 +12,7 @@ router = APIRouter(prefix="/api/theses", tags=["theses"])
 @router.post("", response_model=ThesisOut, status_code=status.HTTP_201_CREATED)
 async def create_thesis(
     body: ThesisCreate,
-    user: Annotated[User, Depends(require_role(UserRole.professor, UserRole.student, UserRole.admin))],
+    user: Annotated[User, Depends(require_role(UserRole.professor, UserRole.admin))],
     thesis_service: ThesisServiceDep,
 ) -> Thesis:
     return await thesis_service.create_thesis(body, user)

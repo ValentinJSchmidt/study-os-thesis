@@ -14,6 +14,7 @@ from app.api import admin as admin_router
 from app.api import auth as auth_router
 from app.api import chairs as chairs_router
 from app.api import chat as chat_router
+from app.api import proposals as proposals_router
 from app.api import students as students_router
 from app.api import theses as theses_router
 from app.config import Settings, get_settings
@@ -161,6 +162,7 @@ def create_app() -> FastAPI:
     app.include_router(admin_router.router)
     app.include_router(students_router.router)
     app.include_router(chairs_router.router)
+    app.include_router(proposals_router.router)
 
     @app.get("/api/health", tags=["meta"])
     async def health() -> dict[str, str]:

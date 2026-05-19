@@ -111,8 +111,14 @@ def get_chat_service(
     settings: SettingsDep,
     student_repo: StudentRepoDep,
     chair_repo: ChairRepoDep,
+    thesis_repo: ThesisRepoDep,
 ) -> ChatService:
-    return ChatService(chat_repo, ollama, settings, student_repo=student_repo, chair_repo=chair_repo)
+    return ChatService(
+        chat_repo, ollama, settings,
+        student_repo=student_repo,
+        chair_repo=chair_repo,
+        thesis_repo=thesis_repo,
+    )
 
 
 def get_admin_service(user_repo: UserRepoDep) -> AdminService:

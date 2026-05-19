@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "../api/client";
 import TopBar from "../components/TopBar";
 import PaperCard, { type Paper } from "../components/PaperCard";
@@ -61,20 +61,33 @@ export default function Chat() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const loadSessions = useCallback(async () => {
-    const list = await api<Session[]>("/api/chat/sessions");
-    setSessions(list);
-    // Only set the active session on initial load (when none is selected yet).
-    // Use the functional form to read the latest active value without adding
-    // it as a dependency — prevents an infinite re-render loop.
-    setActive((prev) => (prev === null && list.length > 0 ? list[0].id : prev));
-  }, []); // no dependency on `active`
-
+  // Load sessions once on mount. Auto-create if the user has none.
   useEffect(() => {
-    void loadSessions();
-  }, [loadSessions]);
+    let cancelled = false;
+    (async () => {
+      try {
+        const list = await api<Session[]>("/api/chat/sessions");
+        if (cancelled) return;
+        if (list.length > 0) {
+          setSessions(list);
+          setActive(list[0].id);
+        } else {
+          // No sessions yet — create one automatically.
+          const s = await api<Session>("/api/chat/sessions", { method: "POST" });
+          if (cancelled) return;
+          setSessions([s]);
+          setActive(s.id);
+        }
+      } catch (err) {
+        if (!cancelled) setError(err instanceof Error ? err.message : "Load failed");
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []); // run once on mount only
 
+  // Load messages whenever the active session changes.
   useEffect(() => {
     if (active === null) {
       setMessages([]);
@@ -88,20 +101,17 @@ export default function Chat() {
       } catch (err) {
         if (cancelled) return;
         const msg = err instanceof Error ? err.message : "Load failed";
-        // Session no longer exists — deselect and refresh the list.
         if (msg.toLowerCase().includes("not found")) {
+          // Session gone — just deselect, don't trigger another load cycle.
           setActive(null);
           setMessages([]);
-          void loadSessions();
         } else {
           setError(msg);
         }
       }
     })();
-    return () => {
-      cancelled = true;
-    };
-  }, [active, loadSessions]);
+    return () => { cancelled = true; };
+  }, [active]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -109,9 +119,14 @@ export default function Chat() {
 
   async function newSession() {
     setError(null);
-    const s = await api<Session>("/api/chat/sessions", { method: "POST" });
-    await loadSessions();
-    setActive(s.id);
+    try {
+      const s = await api<Session>("/api/chat/sessions", { method: "POST" });
+      setSessions((prev) => [s, ...prev]);
+      setActive(s.id);
+      setMessages([]);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not create session");
+    }
   }
 
   async function send(e?: React.FormEvent) {
@@ -121,6 +136,10 @@ export default function Chat() {
     setBusy(true);
     const content = input.trim();
     setInput("");
+    // Reset textarea height back to single line after clearing.
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "48px";
+    }
     try {
       const res = await api<{ messages: Message[] }>(
         `/api/chat/sessions/${active}/messages`,
@@ -180,24 +199,9 @@ export default function Chat() {
           {/* Messages area */}
           <div className="flex-1 overflow-y-auto p-stack-lg flex flex-col gap-stack-lg">
             {active === null ? (
-              <div className="flex flex-col items-center justify-center h-full gap-4 text-center">
-                <div className="w-16 h-16 rounded-full bg-primary-container/20 flex items-center justify-center">
-                  <span className="material-symbols-outlined text-[32px] text-primary">
-                    chat_spark
-                  </span>
-                </div>
-                <h3 className="font-title-lg text-title-lg text-on-surface">
-                  AI Research Assistant
-                </h3>
-                <p className="font-body-sm text-body-sm text-on-surface-variant max-w-xs">
-                  Start a new session to begin your research conversation.
-                </p>
-                <button
-                  onClick={newSession}
-                  className="bg-primary text-on-primary font-label-md text-label-md py-2 px-5 rounded-lg hover:bg-primary/90 transition-colors"
-                >
-                  Start New Session
-                </button>
+              <div className="flex flex-col items-center justify-center h-full gap-4">
+                <div className="w-8 h-8 border-2 border-outline-variant border-t-primary rounded-full animate-spin" />
+                <p className="font-body-sm text-on-surface-variant">Session wird geladen…</p>
               </div>
             ) : (
               <>
@@ -213,8 +217,8 @@ export default function Chat() {
                 {/* Welcome AI bubble if empty */}
                 {messages.length === 0 && !busy && (
                   <div className="flex gap-unit max-w-[85%]">
-                    <div className="w-8 h-8 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center flex-shrink-0 mt-1">
-                      <span className="material-symbols-outlined text-[18px]">smart_toy</span>
+                    <div className="w-8 h-8 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center flex-shrink-0 mt-1 font-bold text-[13px]">
+                      AI
                     </div>
                     <div className="bg-surface-container rounded-2xl rounded-tl-sm p-stack-md border border-outline-variant shadow-sm ai-glass-panel">
                       <div className="font-label-md text-label-md mb-unit ai-gradient-text-teal">
@@ -267,8 +271,8 @@ export default function Chat() {
 
                 {busy && (
                   <div className="flex gap-unit max-w-[85%]">
-                    <div className="w-8 h-8 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center flex-shrink-0 mt-1">
-                      <span className="material-symbols-outlined text-[18px]">smart_toy</span>
+                    <div className="w-8 h-8 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center flex-shrink-0 mt-1 font-bold text-[13px]">
+                      AI
                     </div>
                     <div className="bg-surface-container rounded-2xl rounded-tl-sm p-stack-md border border-outline-variant shadow-sm ai-glass-panel">
                       <div className="font-label-md text-label-md mb-unit ai-gradient-text-teal">
@@ -298,19 +302,20 @@ export default function Chat() {
           <div className="p-stack-md border-t border-outline-variant bg-surface-container-lowest shrink-0">
             <form onSubmit={send} className="relative flex items-end gap-2">
               <textarea
+                ref={textareaRef}
                 value={input}
                 onChange={(e) => {
                   setInput(e.target.value);
-                  // Auto-grow: reset height then set to scrollHeight
+                  // Auto-grow: reset to auto first so shrinking works too.
                   e.target.style.height = "auto";
                   e.target.style.height = `${Math.min(e.target.scrollHeight, 160)}px`;
                 }}
                 onKeyDown={handleKeyDown}
                 disabled={busy || active === null}
-                placeholder="Forschungsfrage stellen… (Enter zum Senden, Shift+Enter für Zeilenumbruch)"
+                placeholder={active === null ? "Erstelle zuerst eine neue Session…" : "Forschungsfrage stellen… (Enter senden, Shift+Enter Zeilenumbruch)"}
                 rows={1}
-                className="flex-1 resize-none bg-surface-container border border-outline-variant focus:border-primary rounded-xl py-3 pl-4 pr-4 outline-none font-body-md text-body-md text-on-surface placeholder:text-on-surface-variant transition-colors shadow-inner disabled:opacity-50 overflow-y-auto"
-                style={{ minHeight: "48px", maxHeight: "160px" }}
+                className="flex-1 resize-none bg-surface-container border border-outline-variant focus:border-primary rounded-xl py-3 pl-4 pr-4 outline-none font-body-md text-body-md text-on-surface placeholder:text-on-surface-variant transition-colors disabled:opacity-40"
+                style={{ minHeight: "48px", maxHeight: "160px", overflowY: "auto" }}
               />
               <button
                 type="submit"
@@ -363,8 +368,8 @@ function ChatBubble({ m }: { m: Message }) {
 
   return (
     <div className="flex gap-unit max-w-[85%]">
-      <div className="w-8 h-8 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center flex-shrink-0 mt-1">
-        <span className="material-symbols-outlined text-[18px]">smart_toy</span>
+      <div className="w-8 h-8 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center flex-shrink-0 mt-1 font-bold text-[13px]">
+        AI
       </div>
       <div className="bg-surface-container rounded-2xl rounded-tl-sm p-stack-md border border-outline-variant shadow-sm">
         <div className="font-label-md text-label-md mb-unit ai-gradient-text-teal">

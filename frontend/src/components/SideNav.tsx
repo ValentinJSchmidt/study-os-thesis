@@ -11,7 +11,7 @@ type NavItem = {
 
 const mainNavItems: NavItem[] = [
   { to: "/dashboard", icon: "dashboard", label: "Dashboard" },
-  { to: "/chat", icon: "chat_spark", label: "AI Chat" },
+  { to: "/chat", icon: "chat_spark", label: "Find Thesis" },
   { to: "/chairs", icon: "explore", label: "Lehrstuhl-Explorer" },
   { to: "/proposals", icon: "description", label: "My Proposals" },
 ];
@@ -52,17 +52,6 @@ export default function SideNav() {
             </p>
           </div>
         </div>
-      </div>
-
-      {/* CTA Button */}
-      <div className="px-6 mb-8">
-        <NavLink
-          to="/proposals"
-          className="w-full bg-primary hover:bg-primary/90 text-on-primary font-label-md text-label-md py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition-colors"
-        >
-          <span className="material-symbols-outlined text-[18px]">add</span>
-          New Research
-        </NavLink>
       </div>
 
       {/* Main Navigation */}

@@ -19,6 +19,7 @@ class ChatRepository:
         self._session.add(chat)
         await self._session.flush()
         await self._session.refresh(chat)
+        await self._session.commit()
         return chat
 
     async def list_sessions(self, user_id: int) -> list[ChatSession]:

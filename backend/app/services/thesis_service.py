@@ -41,6 +41,7 @@ class ThesisService:
             submitter_id=user.id,
             source=source,
             supervisor_id=data.supervisor_id,
+            chair_id=data.chair_id,
             embedding=embedding,
         )
         await self._thesis_repo.commit()
