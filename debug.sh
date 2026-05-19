@@ -165,7 +165,7 @@ run_app() {
   trap cleanup SIGINT SIGTERM EXIT
 
   info "Starting backend (uvicorn) on port 8000..."
-  (cd "$BACKEND_DIR" && exec uv run uvicorn app.main:app --reload --port 8000) &
+  (cd "$BACKEND_DIR" && exec uv run uvicorn app.main:app --reload --port 8000 --log-config log_config.json) &
   BACKEND_PID=$!
 
   info "Starting frontend (vite) on port 5173..."

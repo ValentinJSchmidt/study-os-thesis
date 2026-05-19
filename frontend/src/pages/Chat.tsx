@@ -65,8 +65,11 @@ export default function Chat() {
   const loadSessions = useCallback(async () => {
     const list = await api<Session[]>("/api/chat/sessions");
     setSessions(list);
-    if (!active && list.length > 0) setActive(list[0].id);
-  }, [active]);
+    // Only set the active session on initial load (when none is selected yet).
+    // Use the functional form to read the latest active value without adding
+    // it as a dependency — prevents an infinite re-render loop.
+    setActive((prev) => (prev === null && list.length > 0 ? list[0].id : prev));
+  }, []); // no dependency on `active`
 
   useEffect(() => {
     void loadSessions();
@@ -79,15 +82,26 @@ export default function Chat() {
     }
     let cancelled = false;
     (async () => {
-      const msgs = await api<Message[]>(`/api/chat/sessions/${active}/messages`);
-      if (!cancelled) setMessages(msgs);
-    })().catch((err) =>
-      setError(err instanceof Error ? err.message : "Load failed"),
-    );
+      try {
+        const msgs = await api<Message[]>(`/api/chat/sessions/${active}/messages`);
+        if (!cancelled) setMessages(msgs);
+      } catch (err) {
+        if (cancelled) return;
+        const msg = err instanceof Error ? err.message : "Load failed";
+        // Session no longer exists — deselect and refresh the list.
+        if (msg.toLowerCase().includes("not found")) {
+          setActive(null);
+          setMessages([]);
+          void loadSessions();
+        } else {
+          setError(msg);
+        }
+      }
+    })();
     return () => {
       cancelled = true;
     };
-  }, [active]);
+  }, [active, loadSessions]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -100,9 +114,9 @@ export default function Chat() {
     setActive(s.id);
   }
 
-  async function send(e: React.FormEvent) {
-    e.preventDefault();
-    if (!active || !input.trim()) return;
+  async function send(e?: React.FormEvent) {
+    e?.preventDefault();
+    if (!active || !input.trim() || busy) return;
     setError(null);
     setBusy(true);
     const content = input.trim();
@@ -117,6 +131,14 @@ export default function Chat() {
       setError(err instanceof Error ? err.message : "Send failed");
     } finally {
       setBusy(false);
+    }
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    // Send on Enter, newline on Shift+Enter
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      void send();
     }
   }
 
@@ -274,18 +296,26 @@ export default function Chat() {
 
           {/* Input area */}
           <div className="p-stack-md border-t border-outline-variant bg-surface-container-lowest shrink-0">
-            <form onSubmit={send} className="relative flex items-center">
-              <input
+            <form onSubmit={send} className="relative flex items-end gap-2">
+              <textarea
                 value={input}
-                onChange={(e) => setInput(e.target.value)}
+                onChange={(e) => {
+                  setInput(e.target.value);
+                  // Auto-grow: reset height then set to scrollHeight
+                  e.target.style.height = "auto";
+                  e.target.style.height = `${Math.min(e.target.scrollHeight, 160)}px`;
+                }}
+                onKeyDown={handleKeyDown}
                 disabled={busy || active === null}
-                placeholder="Forschungsfrage stellen..."
-                className="w-full bg-surface-container border border-outline-variant focus:border-primary rounded-xl py-3 pl-4 pr-12 outline-none font-body-md text-body-md text-on-surface placeholder:text-on-surface-variant transition-colors shadow-inner disabled:opacity-50"
+                placeholder="Forschungsfrage stellen… (Enter zum Senden, Shift+Enter für Zeilenumbruch)"
+                rows={1}
+                className="flex-1 resize-none bg-surface-container border border-outline-variant focus:border-primary rounded-xl py-3 pl-4 pr-4 outline-none font-body-md text-body-md text-on-surface placeholder:text-on-surface-variant transition-colors shadow-inner disabled:opacity-50 overflow-y-auto"
+                style={{ minHeight: "48px", maxHeight: "160px" }}
               />
               <button
                 type="submit"
                 disabled={busy || !input.trim() || active === null}
-                className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center text-primary hover:bg-surface-container-highest rounded-lg transition-colors disabled:opacity-40"
+                className="mb-0.5 w-10 h-10 flex items-center justify-center text-primary hover:bg-surface-container-highest rounded-xl transition-colors disabled:opacity-40 shrink-0 border border-outline-variant"
               >
                 <span
                   className="material-symbols-outlined"
@@ -297,16 +327,8 @@ export default function Chat() {
             </form>
             <div className="mt-2 flex justify-between items-center px-1">
               <span className="font-label-md text-[10px] text-on-surface-variant uppercase tracking-wider">
-                AI can make mistakes. Verify important info.
+                AI kann Fehler machen. Wichtige Infos prüfen.
               </span>
-              <div className="flex gap-2">
-                <button className="text-on-surface-variant hover:text-primary transition-colors">
-                  <span className="material-symbols-outlined text-[16px]">attach_file</span>
-                </button>
-                <button className="text-on-surface-variant hover:text-primary transition-colors">
-                  <span className="material-symbols-outlined text-[16px]">mic</span>
-                </button>
-              </div>
             </div>
           </div>
         </div>

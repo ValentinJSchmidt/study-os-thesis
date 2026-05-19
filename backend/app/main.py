@@ -1,5 +1,4 @@
 import logging
-import logging.config
 from contextlib import asynccontextmanager
 from typing import AsyncIterator
 
@@ -29,36 +28,6 @@ from app.exceptions import (
 )
 from app.limiter import limiter
 from app.llm.ollama_client import OllamaClient, OllamaError
-
-logging.config.dictConfig(
-    {
-        "version": 1,
-        "disable_existing_loggers": False,
-        "formatters": {
-            "default": {
-                "format": "%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-                "datefmt": "%H:%M:%S",
-            },
-        },
-        "handlers": {
-            "console": {
-                "class": "logging.StreamHandler",
-                "formatter": "default",
-            },
-        },
-        "root": {
-            "level": "INFO",
-            "handlers": ["console"],
-        },
-        # Quieten noisy third-party loggers.
-        "loggers": {
-            "uvicorn.access": {"level": "INFO"},
-            "uvicorn.error": {"level": "INFO"},
-            "sqlalchemy.engine": {"level": "WARNING"},
-            "httpx": {"level": "WARNING"},
-        },
-    }
-)
 
 _logger = logging.getLogger(__name__)
 
