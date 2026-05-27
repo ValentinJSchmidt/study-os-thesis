@@ -166,6 +166,7 @@ class StudentService:
             response = await self._ollama.chat(
                 model=self._settings.effective_extract_model,
                 messages=[{"role": "user", "content": prompt}],
+                format="json",
             )
         except OllamaError as exc:
             _logger.error("Ollama extraction failed: %s", exc)

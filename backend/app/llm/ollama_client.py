@@ -54,6 +54,7 @@ class OllamaClient:
         messages: list[dict[str, Any]],
         tools: list[dict[str, Any]] | None = None,
         options: dict[str, Any] | None = None,
+        format: str | None = None,
     ) -> dict[str, Any]:
         """Single (non-streamed) /api/chat turn.
 
@@ -69,6 +70,8 @@ class OllamaClient:
             payload["tools"] = tools
         if options:
             payload["options"] = options
+        if format:
+            payload["format"] = format
         r = await self._client.post(f"{self.host}/api/chat", json=payload)
         if r.status_code != 200:
             raise OllamaError(f"chat failed ({r.status_code}): {r.text}")
