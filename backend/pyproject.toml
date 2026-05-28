@@ -2,7 +2,6 @@
 name = "study-os-thesis-backend"
 version = "0.1.0"
 description = "FastAPI backend for the thesis recommendation app"
-readme = "../README.md"
 requires-python = ">=3.13"
 dependencies = [
     "fastapi>=0.115",
@@ -20,7 +19,8 @@ dependencies = [
     "email-validator>=2.2",
     "pyjwt>=2.12.1",
     "slowapi>=0.1.9",
-    "pypdf>=4.0",
+    "pdfplumber>=0.11",
+    "litellm==1.86.0",
 ]
 
 [dependency-groups]
@@ -30,17 +30,15 @@ dev = [
     "ruff>=0.6",
 ]
 
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["app*"]
+
 [tool.uv]
 package = false
 
-[tool.setuptools]
-package-dir = {"" = "src"}
-
-[tool.setuptools.packages.find]
-where = ["src"]
-
 [tool.pytest.ini_options]
-pythonpath = ["src"]
+pythonpath = ["."]
 testpaths = ["tests"]
 
 [tool.ruff]

@@ -10,13 +10,13 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
-from app.api import admin as admin_router
-from app.api import auth as auth_router
-from app.api import chairs as chairs_router
-from app.api import chat as chat_router
-from app.api import proposals as proposals_router
-from app.api import students as students_router
-from app.api import theses as theses_router
+from app.admin import controller as admin_router
+from app.auth import controller as auth_router
+from app.chairs import controller as chairs_router
+from app.chat import controller as chat_router
+from app.proposals import controller as proposals_router
+from app.students import controller as students_router
+from app.theses import controller as theses_router
 from app.config import Settings, get_settings
 from app.exceptions import (
     AlreadyExistsException,
@@ -28,6 +28,7 @@ from app.exceptions import (
     UnauthorizedException,
 )
 from app.limiter import limiter
+from app.llm.factory import build_chat_client, build_embed_client
 from app.llm.ollama_client import OllamaClient, OllamaError
 
 _logger = logging.getLogger(__name__)
@@ -103,17 +104,24 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     _validate_settings()
     settings = get_settings()
 
-    # Create and store a single shared Ollama client for the app lifetime.
-    ollama_client = OllamaClient()
-    app.state.ollama_client = ollama_client
+    # Build and store provider-specific clients for the app lifetime.
+    chat_client = build_chat_client(settings)
+    embed_client = build_embed_client(settings)
+    app.state.llm_chat_client = chat_client
+    app.state.llm_embed_client = embed_client
 
-    # Verify embedding dimension — soft warn if Ollama is offline.
-    await _check_embed_dim(ollama_client, settings)
+    # Keep a reference to the embed client as OllamaClient for the dim check
+    # (only applicable when the embed provider is Ollama).
+    if isinstance(embed_client, OllamaClient):
+        await _check_embed_dim(embed_client, settings)
 
     yield
 
-    # Graceful shutdown: close HTTP connection pool and DB engine.
-    await ollama_client.aclose()
+    # Graceful shutdown: close HTTP connection pools and DB engine.
+    if hasattr(chat_client, "aclose"):
+        await chat_client.aclose()
+    if embed_client is not chat_client and hasattr(embed_client, "aclose"):
+        await embed_client.aclose()
     await engine.dispose()
 
 

@@ -9,6 +9,14 @@ export function setToken(t: string | null): void {
   else localStorage.setItem(TOKEN_KEY, t);
 }
 
+/** Thrown when the LLM provider is unavailable (HTTP 503). */
+export class LLMUnavailableError extends Error {
+  constructor() {
+    super("LLM provider not reachable");
+    this.name = "LLMUnavailableError";
+  }
+}
+
 type FetchOpts = RequestInit & {
   json?: unknown;
   form?: Record<string, string>;
@@ -36,17 +44,47 @@ export async function api<T = unknown>(path: string, opts: FetchOpts = {}): Prom
     body = opts.multipart;
   }
 
-  const res = await fetch(path, { ...opts, headers, body });
+  let res: Response;
+  try {
+    res = await fetch(path, { ...opts, headers, body });
+  } catch (err) {
+    // Network-level failure (backend down, no internet, DNS failure).
+    if (err instanceof TypeError) {
+      throw new Error("Server not reachable. Please check your connection.");
+    }
+    throw err;
+  }
+
   if (!res.ok) {
+    // 503 — LLM provider unavailable, surface as a typed error.
+    if (res.status === 503) {
+      throw new LLMUnavailableError();
+    }
+
+    // 401 — session expired or invalid token; clear local state and redirect to login.
+    if (res.status === 401) {
+      const isAuthRoute =
+        window.location.pathname === "/login" ||
+        window.location.pathname === "/register";
+      if (!isAuthRoute) {
+        setToken(null);
+        window.location.href = "/login";
+        // Return a pending promise — the redirect will happen before anything resolves.
+        return new Promise<never>(() => {});
+      }
+    }
+
     let detail = res.statusText;
     try {
       const data = await res.json();
-      if (data?.detail) detail = typeof data.detail === "string" ? data.detail : JSON.stringify(data.detail);
+      if (data?.detail)
+        detail = typeof data.detail === "string" ? data.detail : JSON.stringify(data.detail);
     } catch {
-      // ignore
+      // ignore — keep statusText as fallback
     }
     throw new Error(detail || `Request failed: ${res.status}`);
   }
+
   if (res.status === 204) return undefined as T;
   return (await res.json()) as T;
 }

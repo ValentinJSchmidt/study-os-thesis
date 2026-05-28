@@ -117,6 +117,13 @@ setup() {
      || [[ "$BACKEND_DIR/pyproject.toml" -nt "$uv_marker" ]]; then
     info "Installing backend dependencies..."
     (cd "$BACKEND_DIR" && uv sync)
+    # macOS Gatekeeper performs slow trustd checks on unsigned .so files.
+    # Ad-hoc signing (no Apple Developer account required) makes dlopen fast.
+    # if [[ "$(uname)" == "Darwin" ]]; then
+    #   info "Ad-hoc signing native extensions (macOS Gatekeeper fix)..."
+    #   find "$BACKEND_DIR/.venv" -name "*.so" -print0 \
+    #     | xargs -0 -P "$(sysctl -n hw.logicalcpu)" codesign --sign - --force 2>/dev/null || true
+    # fi
     touch "$uv_marker"
   else
     info "Backend dependencies up to date — skipping."
@@ -159,17 +166,26 @@ setup() {
     info "Migrations up to date — skipping."
   fi
 
-  # -- Seed data (idempotent) ----------------------------------------------- #
-  info "Seeding database (idempotent)..."
-  (cd "$BACKEND_DIR" && PYTHONPATH=. uv run python scripts/seed.py)
 }
 
 # Launch backend + frontend and wait.
 run_app() {
   trap cleanup SIGINT SIGTERM EXIT
 
+  mkdir -p "$BACKEND_DIR/logs"
+
   info "Starting backend (uvicorn) on port 8000..."
-  (cd "$BACKEND_DIR" && exec uv run uvicorn app.main:app --reload --port 8000 --log-config log_config.json) &
+  # LITELLM_LOCAL_MODEL_COST_MAP suppresses LiteLLM's network call to fetch pricing data.
+  # LITELLM_DONT_SHOW_FEEDBACK_BOX suppresses the interactive prompt.
+  (cd "$BACKEND_DIR" && exec env \
+    LITELLM_LOCAL_MODEL_COST_MAP=1 \
+    LITELLM_DONT_SHOW_FEEDBACK_BOX=1 \
+    uv run uvicorn app.main:app \
+      --reload \
+      --reload-include "app/**/*.py" \
+      --reload-dir app \
+      --port 8000 \
+      --log-config log_config.json) &
   BACKEND_PID=$!
 
   info "Starting frontend (vite) on port 5173..."

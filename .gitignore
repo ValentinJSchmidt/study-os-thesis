@@ -230,6 +230,8 @@ dist/
 Thumbs.db
 
 # --- Project-local runtime ---
+# Backend log files
+backend/logs/
 # Local secrets / per-host overrides
 .env.local
 .env.*.local

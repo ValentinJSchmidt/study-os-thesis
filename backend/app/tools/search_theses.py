@@ -31,7 +31,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import Settings
-from app.llm.ollama_client import OllamaClient
+from app.llm.port import LLMPort
 
 _logger = logging.getLogger(__name__)
 
@@ -83,7 +83,7 @@ def _rrf_fuse(
 
 async def _vector_search(
     session: AsyncSession,
-    ollama: OllamaClient,
+    ollama: LLMPort,
     settings: Settings,
     query: str,
     fetch: int,
@@ -145,7 +145,7 @@ async def _bm25_search(
 # ---------------------------------------------------------------------------
 
 async def search_theses_with_client(
-    ollama: OllamaClient,
+    ollama: LLMPort,
     settings: Settings,
     query: str,
     k: int = 5,

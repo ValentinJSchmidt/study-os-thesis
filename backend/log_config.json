@@ -12,36 +12,44 @@
       "class": "logging.StreamHandler",
       "formatter": "default",
       "stream": "ext://sys.stdout"
+    },
+    "file": {
+      "class": "logging.handlers.RotatingFileHandler",
+      "formatter": "default",
+      "filename": "logs/app.log",
+      "maxBytes": 10485760,
+      "backupCount": 3,
+      "encoding": "utf-8"
     }
   },
   "root": {
     "level": "INFO",
-    "handlers": ["console"]
+    "handlers": ["console", "file"]
   },
   "loggers": {
     "uvicorn": {
       "level": "INFO",
-      "handlers": ["console"],
+      "handlers": ["console", "file"],
       "propagate": false
     },
     "uvicorn.error": {
       "level": "INFO",
-      "handlers": ["console"],
+      "handlers": ["console", "file"],
       "propagate": false
     },
     "uvicorn.access": {
       "level": "INFO",
-      "handlers": ["console"],
+      "handlers": ["console", "file"],
       "propagate": false
     },
     "sqlalchemy.engine": {
       "level": "WARNING",
-      "handlers": ["console"],
+      "handlers": ["console", "file"],
       "propagate": false
     },
     "httpx": {
       "level": "WARNING",
-      "handlers": ["console"],
+      "handlers": ["console", "file"],
       "propagate": false
     }
   }

@@ -36,10 +36,15 @@ class OllamaClient:
 
     async def embed(self, model: str, text: str) -> list[float]:
         """Return one embedding vector for `text` using Ollama's /api/embed."""
-        r = await self._client.post(
-            f"{self.host}/api/embed",
-            json={"model": model, "input": text},
-        )
+        try:
+            r = await self._client.post(
+                f"{self.host}/api/embed",
+                json={"model": model, "input": text},
+            )
+        except httpx.ConnectError as exc:
+            raise OllamaError(f"Ollama not reachable at {self.host}") from exc
+        except httpx.TimeoutException as exc:
+            raise OllamaError(f"Ollama timed out at {self.host}") from exc
         if r.status_code != 200:
             raise OllamaError(f"embed failed ({r.status_code}): {r.text}")
         data = r.json()
@@ -72,7 +77,12 @@ class OllamaClient:
             payload["options"] = options
         if format:
             payload["format"] = format
-        r = await self._client.post(f"{self.host}/api/chat", json=payload)
+        try:
+            r = await self._client.post(f"{self.host}/api/chat", json=payload)
+        except httpx.ConnectError as exc:
+            raise OllamaError(f"Ollama not reachable at {self.host}") from exc
+        except httpx.TimeoutException as exc:
+            raise OllamaError(f"Ollama timed out at {self.host}") from exc
         if r.status_code != 200:
             raise OllamaError(f"chat failed ({r.status_code}): {r.text}")
         return r.json()
