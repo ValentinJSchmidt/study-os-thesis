@@ -53,8 +53,6 @@ function UsersTab() {
                 <span className={`px-2 py-0.5 rounded-full text-[11px] font-label-md ${
                   u.role === "admin"
                     ? "bg-error-container text-on-error-container"
-                    : u.role === "professor"
-                    ? "bg-secondary-container text-on-secondary-fixed-variant"
                     : "bg-surface-container text-on-surface-variant"
                 }`}>
                   {u.role}

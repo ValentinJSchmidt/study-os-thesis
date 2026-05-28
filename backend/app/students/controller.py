@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Form, Query, UploadFile, status
+from fastapi import APIRouter, Form, UploadFile, status
 
 from app.auth.deps import CurrentUserDep
-from app.exceptions import BadRequestException, ForbiddenException
-from app.models import UserRole
+from app.exceptions import BadRequestException
+from app.jobs.deps import JobServiceDep
+from app.models.job import JobType
 from app.students.deps import StudentServiceDep
 from app.students.schemas import StudentOut
 
@@ -15,28 +16,22 @@ _MAX_PDF_SIZE = 10 * 1024 * 1024  # 10 MB
 async def get_my_profile(
     current_user: CurrentUserDep,
     student_service: StudentServiceDep,
-) -> StudentOut:
-    if current_user.role != UserRole.student:
-        raise ForbiddenException("Only students have an academic profile.")
+) -> object:
     return await student_service.get_profile(current_user.id)
 
 
-@router.post("/me/transcript", response_model=StudentOut, status_code=status.HTTP_200_OK)
+@router.post("/me/transcript", status_code=status.HTTP_202_ACCEPTED)
 async def upload_transcript(
     current_user: CurrentUserDep,
-    student_service: StudentServiceDep,
+    job_service: JobServiceDep,
     file: UploadFile,
     program: str | None = Form(default=None, max_length=255),
     semester: int | None = Form(default=None, ge=1, le=30),
-) -> StudentOut:
-    """Upload a PDF transcript of records.
-
-    The file is parsed with pdfplumber and the text is sent to the LLM for
-    structured extraction (courses, grades, ECTS credits). The student's
-    profile and course list are then upserted in the DB.
-    """
-    if current_user.role != UserRole.student:
-        raise ForbiddenException("Only students can upload a transcript.")
+) -> dict:
+    """Upload a PDF transcript. Processing is dispatched to a background worker."""
+    from app.config import get_settings
+    from app.students.pdf_store import store_pdf
+    from app.students.tasks import parse_transcript
 
     if file.content_type not in ("application/pdf", "application/octet-stream"):
         raise BadRequestException("Only PDF files are accepted.")
@@ -47,9 +42,20 @@ async def upload_transcript(
     if not pdf_bytes:
         raise BadRequestException("Uploaded file is empty.")
 
-    return await student_service.upload_transcript(
+    # Create the job first, stash the PDF bytes under its id, then dispatch.
+    job = await job_service.create_job(
+        type=JobType.parse_transcript,
         user_id=current_user.id,
-        pdf_bytes=pdf_bytes,
+        input_data={"program": program, "semester": semester},
+    )
+    await store_pdf(get_settings().redis_url, str(job.id), pdf_bytes)
+
+    task_result = parse_transcript.delay(
+        user_id=current_user.id,
+        job_id=str(job.id),
         program=program,
         semester=semester,
     )
+    await job_service.set_celery_task_id(job.id, task_result.id)
+
+    return {"job_id": str(job.id)}

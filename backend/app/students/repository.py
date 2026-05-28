@@ -15,11 +15,7 @@ class StudentRepository:
         self._session = session
 
     async def get_by_user_id(self, user_id: int) -> Student | None:
-        result = await self._session.scalar(
-            select(Student)
-            .where(Student.user_id == user_id)
-            .options(selectinload(Student.courses))
-        )
+        result = await self._session.scalar(select(Student).where(Student.user_id == user_id).options(selectinload(Student.courses)))
         return result
 
     async def upsert(
@@ -44,9 +40,7 @@ class StudentRepository:
         student.updated_at = datetime.now(timezone.utc)
 
         # Replace all existing courses atomically.
-        await self._session.execute(
-            delete(StudentCourse).where(StudentCourse.student_id == user_id)
-        )
+        await self._session.execute(delete(StudentCourse).where(StudentCourse.student_id == user_id))
         for item in courses:
             self._session.add(
                 StudentCourse(

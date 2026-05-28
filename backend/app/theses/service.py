@@ -22,18 +22,20 @@ class ThesisService:
         self._ollama = embed_client
         self._settings = settings
 
-    async def create_thesis(self, data: ThesisCreate, user: User) -> Thesis:
+    async def create_thesis(self, data: ThesisCreate, user: User, *, embed: bool = True) -> Thesis:
         if data.supervisor_id is not None:
             supervisor = await self._user_repo.get_by_id(data.supervisor_id)
-            if not supervisor or supervisor.role != UserRole.professor:
-                raise BadRequestException("supervisor_id must reference a professor")
+            if not supervisor or supervisor.role != UserRole.admin:
+                raise BadRequestException("supervisor_id must reference an admin")
 
-        source = ThesisSource.professor if user.role == UserRole.professor else ThesisSource.student
+        source = ThesisSource.professor if user.role == UserRole.admin else ThesisSource.student
 
-        embedding = await self._ollama.embed(
-            self._settings.ollama_embed_model,
-            f"{data.title}\n\n{data.abstract}",
-        )
+        embedding = None
+        if embed:
+            embedding = await self._ollama.embed(
+                self._settings.ollama_embed_model,
+                f"{data.title}\n\n{data.abstract}",
+            )
 
         thesis = await self._thesis_repo.create(
             title=data.title,

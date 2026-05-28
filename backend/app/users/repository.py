@@ -27,7 +27,5 @@ class UserRepository:
         await self._session.commit()
 
     async def list_all(self, limit: int = 100, offset: int = 0) -> list[User]:
-        rows = await self._session.scalars(
-            select(User).order_by(User.created_at.desc()).limit(limit).offset(offset)
-        )
+        rows = await self._session.scalars(select(User).order_by(User.created_at.desc()).limit(limit).offset(offset))
         return list(rows)

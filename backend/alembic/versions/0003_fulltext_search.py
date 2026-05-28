@@ -14,6 +14,7 @@ A GIN index is added to make full-text queries using `@@` fast.
 Together with the HNSW index on `embedding` (migration 0002), this enables
 hybrid search: vector similarity + BM25 keyword ranking fused via RRF.
 """
+
 from typing import Sequence, Union
 
 from alembic import op
@@ -39,9 +40,7 @@ def upgrade() -> None:
         """
     )
     # GIN index for fast full-text `@@` queries.
-    op.execute(
-        "CREATE INDEX ix_theses_search_vec_gin ON theses USING gin(search_vec)"
-    )
+    op.execute("CREATE INDEX ix_theses_search_vec_gin ON theses USING gin(search_vec)")
 
 
 def downgrade() -> None:

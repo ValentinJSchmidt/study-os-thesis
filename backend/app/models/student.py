@@ -13,24 +13,16 @@ class Student(Base):
 
     __tablename__ = "students"
 
-    user_id: Mapped[int] = mapped_column(
-        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
-    )
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
     program: Mapped[str | None] = mapped_column(String(255), nullable=True)
     semester: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
     # Credit-weighted average of German grades (1.0 best, 5.0 fail).
     gpa: Mapped[float | None] = mapped_column(Numeric(3, 2), nullable=True)
     # Pre-computed embedding of concatenated course names for chair search.
-    profile_embedding: Mapped[list[float] | None] = mapped_column(
-        Vector(EMBEDDING_DIM), nullable=True
-    )
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
-    )
+    profile_embedding: Mapped[list[float] | None] = mapped_column(Vector(EMBEDDING_DIM), nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 
-    courses: Mapped[list["StudentCourse"]] = relationship(
-        "StudentCourse", back_populates="student", cascade="all, delete-orphan"
-    )
+    courses: Mapped[list["StudentCourse"]] = relationship("StudentCourse", back_populates="student", cascade="all, delete-orphan")
 
 
 class StudentCourse(Base):
@@ -39,9 +31,7 @@ class StudentCourse(Base):
     __tablename__ = "student_courses"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    student_id: Mapped[int] = mapped_column(
-        ForeignKey("students.user_id", ondelete="CASCADE"), nullable=False, index=True
-    )
+    student_id: Mapped[int] = mapped_column(ForeignKey("students.user_id", ondelete="CASCADE"), nullable=False, index=True)
     course_name: Mapped[str] = mapped_column(String(255), nullable=False)
     # Credits as decimal (e.g. 7.5 ECTS).
     credits: Mapped[float | None] = mapped_column(Numeric(4, 1), nullable=True)

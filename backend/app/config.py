@@ -58,6 +58,11 @@ class Settings(BaseSettings):
     deepseek_chat_model: str = Field("deepseek-chat", alias="DEEPSEEK_CHAT_MODEL")
 
     # ---------------------------------------------------------------------------
+    # Redis / Celery
+    # ---------------------------------------------------------------------------
+    redis_url: str = Field("redis://localhost:6379/0", alias="REDIS_URL")
+
+    # ---------------------------------------------------------------------------
     # CORS
     # ---------------------------------------------------------------------------
     cors_origins: str = Field("http://localhost:5173", alias="CORS_ORIGINS")

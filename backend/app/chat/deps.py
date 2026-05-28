@@ -27,7 +27,10 @@ def get_chat_service(
     thesis_repo: ThesisRepoDep,
 ) -> ChatService:
     return ChatService(
-        chat_repo, chat_client, embed_client, settings,
+        chat_repo,
+        chat_client,
+        embed_client,
+        settings,
         student_repo=student_repo,
         chair_repo=chair_repo,
         thesis_repo=thesis_repo,

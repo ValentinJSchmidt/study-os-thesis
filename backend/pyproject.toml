@@ -21,12 +21,16 @@ dependencies = [
     "slowapi>=0.1.9",
     "pdfplumber>=0.11",
     "litellm==1.86.0",
+    "celery[redis]>=5.4",
+    "redis>=5.0",
 ]
 
 [dependency-groups]
 dev = [
     "pytest>=8.3",
     "pytest-asyncio>=0.24",
+    "pytest-cov>=6.0",
+    "respx>=0.22",
     "ruff>=0.6",
 ]
 
@@ -40,6 +44,12 @@ package = false
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["tests"]
+asyncio_mode = "auto"
+markers = [
+    "unit: fast, no I/O, all deps mocked",
+    "integration: requires PostgreSQL + pgvector",
+    "e2e: full HTTP stack with DI overrides",
+]
 
 [tool.ruff]
 line-length = 180
@@ -62,9 +72,8 @@ select = [
 fixable = ["ALL"]
 
 ignore = [
-    "ANN101", # Missing type annotation for self in method
-    "ANN102", # Missing type annotation for cls in classmethod,
     "ANN204", # Return types __init__
+    "ANN401", # Dynamically typed expressions (Any) — used intentionally (Celery self, dynamic payloads)
     "E501",   # Line too long
     "I001",   # Imports are incorrectly sorted.
 ]
@@ -72,6 +81,7 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 # Ignoriere F401 (Unused import) in ALLEN __init__.py Dateien (egal in welchem Ordner)
 "__init__.py" = ["F401"]
+"tests/**/*.py" = ["ANN"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"

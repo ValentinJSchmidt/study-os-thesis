@@ -1,4 +1,4 @@
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Awaitable, Callable
 from typing import Annotated
 
 from fastapi import Depends, HTTPException, Request
@@ -97,14 +97,12 @@ async def get_current_user(
 CurrentUserDep = Annotated[User, Depends(get_current_user)]
 
 
-def require_role(*roles: UserRole):
+def require_role(*roles: UserRole) -> Callable[[User], Awaitable[User]]:
     """Factory that returns a dependency checking the user's role."""
 
     async def _checker(user: CurrentUserDep) -> User:
         if user.role not in roles:
-            raise ForbiddenException(
-                f"Requires role in {[r.value for r in roles]}"
-            )
+            raise ForbiddenException(f"Requires role in {[r.value for r in roles]}")
         return user
 
     return _checker

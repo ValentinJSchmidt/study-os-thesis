@@ -3,7 +3,6 @@ import { useSearchParams } from "react-router-dom";
 import TopBar from "../components/TopBar";
 import { listTheses, listMyProposals, type Thesis, type ThesisDifficulty, type SkillsRequired } from "../api/theses";
 import { listChairs, type Chair } from "../api/chairs";
-import { useAuth } from "../auth/AuthContext";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -183,12 +182,10 @@ function ProposalGrid({
 type TabId = "all" | "mine";
 
 export default function Proposals() {
-  const { user } = useAuth();
-  const isStudent = user?.role === "student";
   const [searchParams] = useSearchParams();
   const filterChairId = searchParams.get("chair_id") ? Number(searchParams.get("chair_id")) : null;
 
-  const [tab, setTab] = useState<TabId>(isStudent ? "mine" : "all");
+  const [tab, setTab] = useState<TabId>("mine");
   const [allTheses, setAllTheses] = useState<Thesis[]>([]);
   const [myProposals, setMyProposals] = useState<Thesis[]>([]);
   const [chairs, setChairs] = useState<Chair[]>([]);
@@ -198,17 +195,14 @@ export default function Proposals() {
 
   useEffect(() => {
     setLoading(true);
-    const fetches: Promise<unknown>[] = [
+    Promise.all([
       listTheses().then(setAllTheses),
       listChairs().then(setChairs),
-    ];
-    if (isStudent) {
-      fetches.push(listMyProposals().then(setMyProposals));
-    }
-    Promise.all(fetches)
+      listMyProposals().then(setMyProposals),
+    ])
       .catch((e) => setError(e instanceof Error ? e.message : "Fehler beim Laden"))
       .finally(() => setLoading(false));
-  }, [isStudent]);
+  }, []);
 
   const chairMap = Object.fromEntries(chairs.map((c) => [c.id, c.name]));
 
@@ -267,23 +261,21 @@ export default function Proposals() {
           >
             Alle Vorschläge
           </button>
-          {isStudent && (
-            <button
-              onClick={() => setTab("mine")}
-              className={`px-5 py-2.5 font-label-md text-label-md transition-colors border-b-2 -mb-px flex items-center gap-2 ${
-                tab === "mine"
-                  ? "border-primary text-primary"
-                  : "border-transparent text-on-surface-variant hover:text-on-surface"
-              }`}
-            >
-              Meine Vorschläge
-              {myProposals.length > 0 && (
-                <span className="bg-primary text-on-primary text-[10px] font-bold px-1.5 py-0.5 rounded-full">
-                  {myProposals.length}
-                </span>
-              )}
-            </button>
-          )}
+          <button
+            onClick={() => setTab("mine")}
+            className={`px-5 py-2.5 font-label-md text-label-md transition-colors border-b-2 -mb-px flex items-center gap-2 ${
+              tab === "mine"
+                ? "border-primary text-primary"
+                : "border-transparent text-on-surface-variant hover:text-on-surface"
+            }`}
+          >
+            Meine Vorschläge
+            {myProposals.length > 0 && (
+              <span className="bg-primary text-on-primary text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                {myProposals.length}
+              </span>
+            )}
+          </button>
         </div>
 
         {/* Loading */}
@@ -309,7 +301,7 @@ export default function Proposals() {
           />
         )}
 
-        {!loading && !error && tab === "mine" && isStudent && (
+        {!loading && !error && tab === "mine" && (
           <div>
             {myProposals.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-24 gap-4 text-on-surface-variant text-center">

@@ -102,7 +102,7 @@ export default function Register() {
                 Rolle
               </label>
               <div className="flex gap-3">
-                {(["student", "professor"] as Role[]).map((r) => (
+                 {(["student"] as Role[]).map((r) => (
                   <button
                     key={r}
                     type="button"
@@ -113,21 +113,12 @@ export default function Register() {
                         : "border-outline-variant text-on-surface-variant hover:border-primary hover:text-primary bg-surface"
                     }`}
                   >
-                    {r === "student" ? (
-                      <span className="flex items-center justify-center gap-2">
-                        <span className="material-symbols-outlined text-[16px]">
-                          school
-                        </span>
-                        Student
+                    <span className="flex items-center justify-center gap-2">
+                      <span className="material-symbols-outlined text-[16px]">
+                        school
                       </span>
-                    ) : (
-                      <span className="flex items-center justify-center gap-2">
-                        <span className="material-symbols-outlined text-[16px]">
-                          person
-                        </span>
-                        Professor
-                      </span>
-                    )}
+                      Student
+                    </span>
                   </button>
                 ))}
               </div>

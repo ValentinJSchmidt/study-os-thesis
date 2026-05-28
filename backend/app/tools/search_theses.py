@@ -22,6 +22,7 @@ Fallback behaviour
 * No BM25 hits    → vector-only results are returned.
 * Both legs empty → empty list returned.
 """
+
 import asyncio
 import logging
 from typing import TypedDict
@@ -50,9 +51,10 @@ class ThesisHit(TypedDict):
 # Internal helpers
 # ---------------------------------------------------------------------------
 
+
 def _rrf_fuse(
-    vector_rows: list[tuple],   # (id, title, abstract, distance)
-    bm25_rows: list[tuple],     # (id, title, abstract, rank)
+    vector_rows: list[tuple],  # (id, title, abstract, distance)
+    bm25_rows: list[tuple],  # (id, title, abstract, rank)
 ) -> list[ThesisHit]:
     """Merge two ranked lists with Reciprocal Rank Fusion."""
     # Accumulate RRF scores and store metadata keyed by thesis id.
@@ -143,6 +145,7 @@ async def _bm25_search(
 # ---------------------------------------------------------------------------
 # Public API (signature unchanged — all callers continue to work as-is)
 # ---------------------------------------------------------------------------
+
 
 async def search_theses_with_client(
     ollama: LLMPort,

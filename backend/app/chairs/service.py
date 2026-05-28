@@ -33,7 +33,7 @@ class ChairService:
     # Chair CRUD
     # ------------------------------------------------------------------
 
-    async def create_chair(self, data: ChairCreate) -> Chair:
+    async def create_chair(self, data: ChairCreate, *, embed: bool = True) -> Chair:
         _logger.info("Creating chair: name=%r professor=%r", data.name, data.professor_name)
         chair = await self._chair_repo.create(
             name=data.name,
@@ -42,14 +42,15 @@ class ChairService:
             professor_user_id=data.professor_user_id,
             website_url=data.website_url,
         )
-        _logger.info("Chair created: id=%d — embedding description document", chair.id)
-        embedding = await self._embed_text(data.short_description)
-        await self._chair_repo.add_document(
-            chair_id=chair.id,
-            kind=ChairDocumentKind.description,
-            content=data.short_description,
-            embedding=embedding,
-        )
+        if embed:
+            _logger.info("Chair created: id=%d — embedding description document", chair.id)
+            embedding = await self._embed_text(data.short_description)
+            await self._chair_repo.add_document(
+                chair_id=chair.id,
+                kind=ChairDocumentKind.description,
+                content=data.short_description,
+                embedding=embedding,
+            )
         await self._chair_repo.commit()
         _logger.info("Chair id=%d committed to DB", chair.id)
         return await self._chair_repo.get_by_id(chair.id, load_documents=True)  # type: ignore[return-value]
@@ -83,9 +84,7 @@ class ChairService:
     # Document management
     # ------------------------------------------------------------------
 
-    async def ingest_arxiv_paper(
-        self, chair_id: int, req: ArxivIngestRequest
-    ) -> ChairDocument:
+    async def ingest_arxiv_paper(self, chair_id: int, req: ArxivIngestRequest) -> ChairDocument:
         _logger.info("ArXiv ingest started: chair_id=%d arxiv_id=%r", chair_id, req.arxiv_id)
         chair = await self._chair_repo.get_by_id(chair_id)
         if chair is None:
@@ -149,9 +148,7 @@ async def _fetch_arxiv_metadata(arxiv_id: str) -> tuple[str, str, int | None]:
             resp = await client.get(url)
             resp.raise_for_status()
         except httpx.HTTPStatusError as exc:
-            raise BadRequestException(
-                f"ArXiv API returned {exc.response.status_code} for id '{arxiv_id}'"
-            ) from exc
+            raise BadRequestException(f"ArXiv API returned {exc.response.status_code} for id '{arxiv_id}'") from exc
         except httpx.RequestError as exc:
             raise BadRequestException(f"Could not reach ArXiv API: {exc}") from exc
 

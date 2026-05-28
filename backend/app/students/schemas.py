@@ -27,9 +27,11 @@ class StudentOut(BaseModel):
 class StudentCourseItem(BaseModel):
     """One course row as extracted from the transcript by the LLM."""
 
+    model_config = ConfigDict(extra="ignore")
+
     course_name: str = Field(min_length=1, max_length=255)
     credits: float | None = None
-    grade: str | None = Field(default=None, max_length=20)
+    grade: str | None = Field(default=None, max_length=50)
     semester_taken: str | None = Field(default=None, max_length=50)
 
 

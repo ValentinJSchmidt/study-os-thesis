@@ -48,6 +48,7 @@ def _normalise_tool_calls(
         try:
             fn = tc.function
             import json
+
             args: Any = fn.arguments
             if isinstance(args, str):
                 try:

@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import type { ReactNode } from "react";
 import { api, getToken, setToken } from "../api/client";
 
-export type Role = "student" | "professor" | "admin";
+export type Role = "student" | "admin";
 
 export type User = {
   id: number;

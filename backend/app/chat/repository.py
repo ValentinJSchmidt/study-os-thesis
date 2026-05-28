@@ -23,11 +23,7 @@ class ChatRepository:
         return chat
 
     async def list_sessions(self, user_id: int) -> list[ChatSession]:
-        rows = await self._session.scalars(
-            select(ChatSession)
-            .where(ChatSession.user_id == user_id)
-            .order_by(ChatSession.created_at.desc())
-        )
+        rows = await self._session.scalars(select(ChatSession).where(ChatSession.user_id == user_id).order_by(ChatSession.created_at.desc()))
         return list(rows)
 
     async def get_session(self, session_id: int) -> ChatSession | None:
@@ -36,11 +32,7 @@ class ChatRepository:
     # ---- Messages ----
 
     async def list_messages(self, session_id: int) -> list[ChatMessage]:
-        rows = await self._session.scalars(
-            select(ChatMessage)
-            .where(ChatMessage.session_id == session_id)
-            .order_by(ChatMessage.created_at.asc(), ChatMessage.id.asc())
-        )
+        rows = await self._session.scalars(select(ChatMessage).where(ChatMessage.session_id == session_id).order_by(ChatMessage.created_at.asc(), ChatMessage.id.asc()))
         return list(rows)
 
     async def create_message(

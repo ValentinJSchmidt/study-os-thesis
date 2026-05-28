@@ -92,10 +92,7 @@ TOOLS_SPEC: list[dict[str, Any]] = [
         "type": "function",
         "function": {
             "name": "search_chairs",
-            "description": (
-                "Semantic search over research chair descriptions and paper abstracts. "
-                "Returns chairs whose research focus best matches the query."
-            ),
+            "description": ("Semantic search over research chair descriptions and paper abstracts. Returns chairs whose research focus best matches the query."),
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -117,10 +114,7 @@ TOOLS_SPEC: list[dict[str, Any]] = [
         "type": "function",
         "function": {
             "name": "search_theses",
-            "description": (
-                "Semantic + keyword search over open thesis proposals. "
-                "Optionally filter by chair_id to scope results to a specific chair."
-            ),
+            "description": ("Semantic + keyword search over open thesis proposals. Optionally filter by chair_id to scope results to a specific chair."),
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -160,10 +154,7 @@ TOOLS_SPEC: list[dict[str, Any]] = [
                     },
                     "research_direction": {
                         "type": "string",
-                        "description": (
-                            "Specific topic or research direction to explore, derived "
-                            "from the student's courses and the chair's focus."
-                        ),
+                        "description": ("Specific topic or research direction to explore, derived from the student's courses and the chair's focus."),
                     },
                     "count": {
                         "type": "integer",
@@ -248,9 +239,7 @@ class ChatService:
             _logger.warning("Could not load student profile for chat context: %s", exc)
             return None
 
-    async def send_message(
-        self, session_id: int, user_id: int, content: str
-    ) -> list[ChatMessage]:
+    async def send_message(self, session_id: int, user_id: int, content: str) -> list[ChatMessage]:
         content = content.strip()
         if not content:
             raise BadRequestException("Empty message")
@@ -265,9 +254,7 @@ class ChatService:
 
     # ---- Agent loop ----
 
-    async def _run_agent_turn(
-        self, chat_session_id: int, user_content: str, user_id: int
-    ) -> list[ChatMessage]:
+    async def _run_agent_turn(self, chat_session_id: int, user_content: str, user_id: int) -> list[ChatMessage]:
         history = await self._chat_repo.list_messages(chat_session_id)
         history = history[-MAX_HISTORY_MESSAGES:]
 
@@ -286,9 +273,7 @@ class ChatService:
         if student_context:
             system_content = system_content + "\n\n" + student_context
 
-        llm_messages: list[dict[str, Any]] = [
-            {"role": "system", "content": system_content}
-        ]
+        llm_messages: list[dict[str, Any]] = [{"role": "system", "content": system_content}]
         for row in history:
             llm_messages.append(_db_row_to_llm_message(row))
         llm_messages.append({"role": "user", "content": user_content})
@@ -324,9 +309,7 @@ class ChatService:
                     fn = call.get("function", {}) or {}
                     name = fn.get("name", "")
                     args = fn.get("arguments", {})
-                    tool_result = await self._execute_tool_call(
-                        name, args, user_id=user_id, chat_session_id=chat_session_id
-                    )
+                    tool_result = await self._execute_tool_call(name, args, user_id=user_id, chat_session_id=chat_session_id)
                     tool_row = await self._chat_repo.create_message(
                         session_id=chat_session_id,
                         role=MessageRole.tool,
@@ -335,9 +318,7 @@ class ChatService:
                         flush_only=True,
                     )
                     new_messages.append(tool_row)
-                    llm_messages.append(
-                        {"role": "tool", "content": tool_result, "name": name}
-                    )
+                    llm_messages.append({"role": "tool", "content": tool_result, "name": name})
                 continue
 
             assistant_row = await self._chat_repo.create_message(
@@ -381,9 +362,7 @@ class ChatService:
         elif name == "search_chairs":
             return await self._tool_search_chairs(arguments)
         elif name == "generate_proposal":
-            return await self._tool_generate_proposal(
-                arguments, user_id=user_id, chat_session_id=chat_session_id
-            )
+            return await self._tool_generate_proposal(arguments, user_id=user_id, chat_session_id=chat_session_id)
         else:
             return json.dumps({"error": f"unknown tool: {name}"})
 
@@ -402,9 +381,7 @@ class ChatService:
                 chair_id = int(raw_chair)
             except (TypeError, ValueError):
                 pass
-        hits = await search_theses_with_client(
-            self._embed, self._settings, query, k=k, chair_id=chair_id
-        )
+        hits = await search_theses_with_client(self._embed, self._settings, query, k=k, chair_id=chair_id)
         return json.dumps({"results": hits})
 
     async def _tool_search_chairs(self, arguments: dict[str, Any]) -> str:
@@ -454,7 +431,10 @@ class ChatService:
 
         _logger.info(
             "generate_proposal: user_id=%d chair_id=%d count=%d direction=%r",
-            user_id, chair_id, count, research_direction[:80],
+            user_id,
+            chair_id,
+            count,
+            research_direction[:80],
         )
 
         chair = await self._chair_repo.get_by_id(chair_id, load_documents=False)
@@ -473,12 +453,7 @@ class ChatService:
                     semester = str(student.semester) if student.semester else "N/A"
                     program = student.program or "N/A"
                     if student.courses:
-                        courses_str = "; ".join(
-                            f"{c.course_name} ({c.credits} ECTS, {c.grade})"
-                            if c.credits and c.grade
-                            else c.course_name
-                            for c in student.courses
-                        )
+                        courses_str = "; ".join(f"{c.course_name} ({c.credits} ECTS, {c.grade})" if c.credits and c.grade else c.course_name for c in student.courses)
             except Exception as exc:
                 _logger.warning("Could not load student profile for proposal generation: %s", exc)
 
@@ -550,8 +525,10 @@ class ChatService:
             _logger.info("Proposal saved: id=%d title=%r", thesis.id, thesis.title)
 
         _logger.info("Generated and saved %d proposal(s) for user_id=%d", len(saved), user_id)
-        return json.dumps({
-            "generated": len(saved),
-            "proposals": saved,
-            "message": f"{len(saved)} proposal(s) saved to 'Meine Vorschläge'.",
-        })
+        return json.dumps(
+            {
+                "generated": len(saved),
+                "proposals": saved,
+                "message": f"{len(saved)} proposal(s) saved to 'Meine Vorschläge'.",
+            }
+        )

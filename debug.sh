@@ -14,6 +14,7 @@ ENV_EXAMPLE="$BACKEND_DIR/.env.example"
 # PIDs of background processes (for cleanup)
 BACKEND_PID=""
 FRONTEND_PID=""
+CELERY_PID=""
 
 # --------------------------------------------------------------------------- #
 # Helpers
@@ -55,17 +56,23 @@ cleanup() {
   trap - SIGINT SIGTERM EXIT
 
   info "Shutting down app processes..."
+  kill_pid "$CELERY_PID"
   kill_pid "$BACKEND_PID"
   kill_pid "$FRONTEND_PID"
   wait 2>/dev/null || true
 
   info "App stopped. Docker containers are still running."
-  info "Run '$0 down' to stop the database container."
+  info "Run '$0 down' to stop the database and Redis containers."
 }
 
-# Check if the DB container is already healthy (instant check, no polling).
+# Check if a Docker container is already healthy (instant check, no polling).
 db_is_healthy() {
   docker compose -f "$SCRIPT_DIR/docker-compose.yml" ps "db" 2>/dev/null \
+    | grep -q "(healthy)"
+}
+
+redis_is_healthy() {
+  docker compose -f "$SCRIPT_DIR/docker-compose.yml" ps "redis" 2>/dev/null \
     | grep -q "(healthy)"
 }
 
@@ -174,6 +181,15 @@ run_app() {
 
   mkdir -p "$BACKEND_DIR/logs"
 
+  info "Starting Celery worker..."
+  (cd "$BACKEND_DIR" && exec env \
+    LITELLM_LOCAL_MODEL_COST_MAP=1 \
+    LITELLM_DONT_SHOW_FEEDBACK_BOX=1 \
+    uv run celery -A app.worker.celery_app worker \
+      --loglevel=info \
+      --concurrency=2) &
+  CELERY_PID=$!
+
   info "Starting backend (uvicorn) on port 8000..."
   # LITELLM_LOCAL_MODEL_COST_MAP suppresses LiteLLM's network call to fetch pricing data.
   # LITELLM_DONT_SHOW_FEEDBACK_BOX suppresses the interactive prompt.
@@ -197,6 +213,7 @@ run_app() {
   info "  Frontend : http://localhost:5173"
   info "  Backend  : http://localhost:8000"
   info "  API docs : http://localhost:8000/docs"
+  info "  Worker   : Celery (2 processes)"
   info "========================================="
   info "Press Ctrl+C to stop the app."
   echo ""
@@ -209,8 +226,8 @@ cmd_start() {
   check_cmd uv
   check_cmd npm
 
-  if ! db_is_healthy; then
-    die "DB container is not running/healthy. Run '$0 up' first to start containers."
+  if ! db_is_healthy || ! redis_is_healthy; then
+    die "DB or Redis container is not running/healthy. Run '$0 up' first to start containers."
   fi
 
   setup
@@ -230,6 +247,12 @@ cmd_up() {
     info "DB is already healthy."
   else
     wait_for_healthy "db" 60
+  fi
+
+  if redis_is_healthy; then
+    info "Redis is already healthy."
+  else
+    wait_for_healthy "redis" 30
   fi
 
   setup

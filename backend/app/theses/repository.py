@@ -41,9 +41,7 @@ class ThesisRepository:
         return thesis
 
     async def list(self, limit: int = 20, offset: int = 0) -> list[Thesis]:
-        rows = await self._session.scalars(
-            select(Thesis).order_by(Thesis.created_at.desc()).limit(limit).offset(offset)
-        )
+        rows = await self._session.scalars(select(Thesis).order_by(Thesis.created_at.desc()).limit(limit).offset(offset))
         return list(rows)
 
     async def commit(self) -> None:
@@ -54,9 +52,5 @@ class ThesisRepository:
 
     async def list_for_user(self, user_id: int) -> list[Thesis]:
         """Return all proposals generated for a specific student, newest first."""
-        rows = await self._session.scalars(
-            select(Thesis)
-            .where(Thesis.generated_for_user_id == user_id)
-            .order_by(Thesis.created_at.desc())
-        )
+        rows = await self._session.scalars(select(Thesis).where(Thesis.generated_for_user_id == user_id).order_by(Thesis.created_at.desc()))
         return list(rows)

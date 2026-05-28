@@ -3,7 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Query
 
 from app.admin.deps import AdminServiceDep
-from app.auth.deps import CurrentUserDep, require_role
+from app.auth.deps import require_role
 from app.auth.schemas import UserOut
 from app.models import User, UserRole
 

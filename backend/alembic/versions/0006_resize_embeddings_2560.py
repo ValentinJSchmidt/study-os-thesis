@@ -14,6 +14,7 @@ Revision ID: 0006
 Revises: 0005
 Create Date: 2026-05-19
 """
+
 from typing import Sequence, Union
 
 import sqlalchemy as sa
@@ -40,29 +41,21 @@ def upgrade() -> None:
     # ── chair_documents.embedding ─────────────────────────────────────────────
     op.execute("DROP INDEX IF EXISTS ix_chair_documents_embedding_hnsw")
     op.drop_column("chair_documents", "embedding")
-    op.add_column(
-        "chair_documents", sa.Column("embedding", Vector(NEW_DIM), nullable=True)
-    )
+    op.add_column("chair_documents", sa.Column("embedding", Vector(NEW_DIM), nullable=True))
 
     # ── students.profile_embedding ────────────────────────────────────────────
     op.drop_column("students", "profile_embedding")
-    op.add_column(
-        "students", sa.Column("profile_embedding", Vector(NEW_DIM), nullable=True)
-    )
+    op.add_column("students", sa.Column("profile_embedding", Vector(NEW_DIM), nullable=True))
 
 
 def downgrade() -> None:
     # ── students.profile_embedding ────────────────────────────────────────────
     op.drop_column("students", "profile_embedding")
-    op.add_column(
-        "students", sa.Column("profile_embedding", Vector(OLD_DIM), nullable=True)
-    )
+    op.add_column("students", sa.Column("profile_embedding", Vector(OLD_DIM), nullable=True))
 
     # ── chair_documents.embedding ─────────────────────────────────────────────
     op.drop_column("chair_documents", "embedding")
-    op.add_column(
-        "chair_documents", sa.Column("embedding", Vector(OLD_DIM), nullable=True)
-    )
+    op.add_column("chair_documents", sa.Column("embedding", Vector(OLD_DIM), nullable=True))
     op.execute(
         """
         CREATE INDEX ix_chair_documents_embedding_hnsw

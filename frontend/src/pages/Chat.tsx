@@ -134,20 +134,51 @@ export default function Chat() {
     if (!active || !input.trim() || busy) return;
     setError(null);
     setBusy(true);
+    const sessionId = active;
     const content = input.trim();
     setInput("");
     // Reset textarea height back to single line after clearing.
     if (textareaRef.current) {
       textareaRef.current.style.height = "48px";
     }
+
+    // Optimistically show the user's message while the worker runs the turn.
+    const tempId = -Date.now();
+    setMessages((prev) => [
+      ...prev,
+      { id: tempId, session_id: sessionId, role: "user", content, created_at: new Date().toISOString() },
+    ]);
+
     try {
-      const res = await api<{ messages: Message[] }>(
-        `/api/chat/sessions/${active}/messages`,
+      // The agent loop runs in a background worker; the POST returns a job id.
+      const { job_id } = await api<{ job_id: string; session_id: number }>(
+        `/api/chat/sessions/${sessionId}/messages`,
         { method: "POST", json: { content } },
       );
-      setMessages((prev) => [...prev, ...res.messages]);
+
+      // Poll the job until the turn finishes, then refetch the full history.
+      // (Live streaming over WebSocket is a separate follow-up.)
+      // Up to ~5 minutes: local LLMs can be slow, especially under memory pressure.
+      const POLL_INTERVAL_MS = 2000;
+      const MAX_POLLS = 150; // 150 * 2s = 300s
+      let status = "pending";
+      for (let i = 0; i < MAX_POLLS && status !== "success" && status !== "failure"; i++) {
+        await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
+        const job = await api<{ status: string }>(`/api/jobs/${job_id}`);
+        status = job.status;
+      }
+
+      const msgs = await api<Message[]>(`/api/chat/sessions/${sessionId}/messages`);
+      setMessages(msgs);
+
+      if (status === "failure") {
+        setError("The assistant could not complete this turn. Please try again.");
+      } else if (status !== "success") {
+        setError("Still working on it — your reply will appear here once it's ready.");
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Send failed");
+      setMessages((prev) => prev.filter((m) => m.id !== tempId));
     } finally {
       setBusy(false);
     }

@@ -18,11 +18,10 @@ const SKILL_BAR_AXES = [
 
 export default function Dashboard() {
   const { user } = useAuth();
-  const isStudent = user?.role === "student";
   const firstName = user?.email?.split("@")[0] ?? "User";
 
   const [profile, setProfile] = useState<StudentProfile | null>(null);
-  const [profileLoading, setProfileLoading] = useState(isStudent);
+  const [profileLoading, setProfileLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
@@ -30,13 +29,12 @@ export default function Dashboard() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (!isStudent) return;
     setProfileLoading(true);
     getStudentProfile()
       .then(setProfile)
       .catch(() => setProfile(null)) // 404 = no profile yet
       .finally(() => setProfileLoading(false));
-  }, [isStudent]);
+  }, []);
 
   async function handleFile(file: File) {
     if (!file.name.toLowerCase().endsWith(".pdf")) {
@@ -109,8 +107,7 @@ export default function Dashboard() {
           </div>
 
           {/* Bento Grid: upload + stats */}
-          {isStudent && (
-            <div className="grid grid-cols-12 gap-gutter mb-8">
+          <div className="grid grid-cols-12 gap-gutter mb-8">
               {/* Upload Area */}
               <div className="col-span-12 md:col-span-8 flex flex-col">
                 <input
@@ -235,7 +232,6 @@ export default function Dashboard() {
                 </div>
               </div>
             </div>
-          )}
 
           {/* Skill Analysis */}
           <div className="mb-8">
@@ -252,7 +248,7 @@ export default function Dashboard() {
 
             <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-6 md:p-8 ambient-shadow relative">
               {/* Lock overlay — shown before any profile */}
-              {isStudent && !hasProfile && !profileLoading && (
+              {!hasProfile && !profileLoading && (
                 <div className="absolute inset-0 glass-panel z-20 flex flex-col items-center justify-center rounded-xl">
                   <span className="material-symbols-outlined text-[48px] text-primary/40 mb-4">lock</span>
                   <h4 className="font-headline-md text-headline-md text-primary mb-2 text-center">
@@ -265,7 +261,7 @@ export default function Dashboard() {
                 </div>
               )}
 
-              <div className={isStudent && !hasProfile && !profileLoading ? "opacity-40 pointer-events-none" : ""}>
+              <div className={!hasProfile && !profileLoading ? "opacity-40 pointer-events-none" : ""}>
                 <SkillRadar currentData={radarData} />
 
                 {skillBars && (
