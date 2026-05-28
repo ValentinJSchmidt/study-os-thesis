@@ -15,12 +15,14 @@ from app.worker import task_runner
 
 @pytest.fixture
 def lifecycle_patches():
-    with patch.object(task_runner, "mark_started") as started, \
-         patch.object(task_runner, "mark_success") as success, \
-         patch.object(task_runner, "mark_failure") as failure, \
-         patch.object(task_runner, "mark_retry") as retry, \
-         patch.object(task_runner, "publish_event") as publish, \
-         patch.object(task_runner, "run_async") as run:
+    with (
+        patch.object(task_runner, "mark_started") as started,
+        patch.object(task_runner, "mark_success") as success,
+        patch.object(task_runner, "mark_failure") as failure,
+        patch.object(task_runner, "mark_retry") as retry,
+        patch.object(task_runner, "publish_event") as publish,
+        patch.object(task_runner, "run_async") as run,
+    ):
         yield {
             "started": started,
             "success": success,

@@ -18,6 +18,7 @@ __all__ = ["_make_orm"]
 # Constants
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture(scope="session")
 def embedding_dim() -> int:
     return EMBEDDING_DIM
@@ -26,6 +27,7 @@ def embedding_dim() -> int:
 # ---------------------------------------------------------------------------
 # Fake Settings
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture(scope="session")
 def fake_settings():
@@ -65,6 +67,7 @@ def fake_settings():
 # Mock LLM clients
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def mock_llm_chat() -> AsyncMock:
     """AsyncMock satisfying LLMPort for chat calls."""
@@ -93,6 +96,7 @@ def mock_llm_embed() -> AsyncMock:
 # ---------------------------------------------------------------------------
 # Fake user fixtures
 # ---------------------------------------------------------------------------
+
 
 def _make_orm(_cls=None, **kwargs):
     """Create a lightweight fake that behaves like a SQLAlchemy ORM instance.

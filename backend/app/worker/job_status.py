@@ -18,9 +18,7 @@ from app.worker.utils import run_async
 logger = logging.getLogger(__name__)
 
 
-async def _with_job_service(
-    job_id: str, fn: Callable[[Any, uuid.UUID], Awaitable[Any]]
-) -> None:
+async def _with_job_service(job_id: str, fn: Callable[[Any, uuid.UUID], Awaitable[Any]]) -> None:
     from app.db import SessionLocal
     from app.jobs.repository import JobRepository
     from app.jobs.service import JobService

@@ -35,14 +35,16 @@ class TestProcessChatTurnWork:
         svc.send_message.return_value = ["m1", "m2", "m3"]
         settings = SimpleNamespace(ollama_embed_model="m")
 
-        with patch("app.db.SessionLocal", return_value=_acm(session)), \
-             patch("app.chat.repository.ChatRepository", return_value=AsyncMock()), \
-             patch("app.students.repository.StudentRepository", return_value=AsyncMock()), \
-             patch("app.chairs.repository.ChairRepository", return_value=AsyncMock()), \
-             patch("app.theses.repository.ThesisRepository", return_value=AsyncMock()), \
-             patch("app.chat.service.ChatService", return_value=svc), \
-             patch("app.llm.factory.build_chat_client", return_value=AsyncMock()), \
-             patch("app.llm.factory.build_embed_client", return_value=AsyncMock()):
+        with (
+            patch("app.db.SessionLocal", return_value=_acm(session)),
+            patch("app.chat.repository.ChatRepository", return_value=AsyncMock()),
+            patch("app.students.repository.StudentRepository", return_value=AsyncMock()),
+            patch("app.chairs.repository.ChairRepository", return_value=AsyncMock()),
+            patch("app.theses.repository.ThesisRepository", return_value=AsyncMock()),
+            patch("app.chat.service.ChatService", return_value=svc),
+            patch("app.llm.factory.build_chat_client", return_value=AsyncMock()),
+            patch("app.llm.factory.build_embed_client", return_value=AsyncMock()),
+        ):
             result = await _process_chat_turn_work(2, 1, "Hello", settings)
 
         svc.send_message.assert_awaited_once_with(2, 1, "Hello")

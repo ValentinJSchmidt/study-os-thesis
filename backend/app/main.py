@@ -6,7 +6,6 @@ import httpx
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from starlette.exceptions import HTTPException as StarletteHTTPException
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
@@ -53,10 +52,7 @@ def _validate_settings() -> None:
     """Fail fast on known-dangerous default values."""
     settings = get_settings()
     if settings.jwt_secret in ("change-me-to-a-random-string", "", "secret"):
-        raise RuntimeError(
-            "JWT_SECRET is set to an insecure default. "
-            "Generate one with: python -c \"import secrets; print(secrets.token_urlsafe(32))\""
-        )
+        raise RuntimeError('JWT_SECRET is set to an insecure default. Generate one with: python -c "import secrets; print(secrets.token_urlsafe(32))"')
 
 
 async def _check_embed_dim(ollama_client: OllamaClient, settings: Settings) -> None:
@@ -82,18 +78,12 @@ async def _check_embed_dim(ollama_client: OllamaClient, settings: Settings) -> N
             actual,
         )
     except httpx.ConnectError:
-        _logger.warning(
-            "Ollama is offline — embedding dimension not verified. "
-            "Embed and chat endpoints will fail until Ollama is running."
-        )
+        _logger.warning("Ollama is offline — embedding dimension not verified. Embed and chat endpoints will fail until Ollama is running.")
     except httpx.TimeoutException:
-        _logger.warning(
-            "Ollama did not respond within the timeout — embedding dimension not verified."
-        )
+        _logger.warning("Ollama did not respond within the timeout — embedding dimension not verified.")
     except OllamaError as exc:
         _logger.warning(
-            "Ollama embed probe failed — embedding dimension not verified. "
-            "Embed and chat endpoints will fail until the model is available. (%s)",
+            "Ollama embed probe failed — embedding dimension not verified. Embed and chat endpoints will fail until the model is available. (%s)",
             exc,
         )
 
@@ -118,9 +108,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     # WebSocket connection manager + Redis Pub/Sub listener
     app.state.ws_manager = ConnectionManager()
-    listener_task = asyncio.create_task(
-        redis_listener(app.state.ws_manager, settings.redis_url)
-    )
+    listener_task = asyncio.create_task(redis_listener(app.state.ws_manager, settings.redis_url))
 
     # Keep a reference to the embed client as OllamaClient for the dim check
     # (only applicable when the embed provider is Ollama).

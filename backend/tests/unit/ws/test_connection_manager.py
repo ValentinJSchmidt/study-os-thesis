@@ -3,7 +3,7 @@
 These tests will FAIL until app.ws.manager is implemented.
 """
 
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -12,6 +12,7 @@ import pytest
 class TestConnectionManager:
     def _make_manager(self):
         from app.ws.manager import ConnectionManager
+
         return ConnectionManager()
 
     def _mock_ws(self):

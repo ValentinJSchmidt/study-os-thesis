@@ -3,16 +3,17 @@
 Run from backend/:
     uv run python scripts/check_search.py "deep learning on graphs"
 """
+
 import asyncio
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from app.config import get_settings  # noqa: E402
-from app.db import SessionLocal  # noqa: E402
-from app.llm.ollama_client import OllamaClient  # noqa: E402
-from app.tools.search_theses import search_theses_with_client  # noqa: E402
+from app.config import get_settings
+from app.db import SessionLocal
+from app.llm.ollama_client import OllamaClient
+from app.tools.search_theses import search_theses_with_client
 
 
 async def main(query: str) -> None:

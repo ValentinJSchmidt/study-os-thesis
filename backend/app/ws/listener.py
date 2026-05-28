@@ -41,22 +41,37 @@ async def _handle_message(raw: dict[str, Any], manager: ConnectionManager) -> No
     await manager.send_to_user(user_id, data)
 
 
-async def redis_listener(manager: ConnectionManager, redis_url: str) -> None:
+async def _aclose(pubsub: Any, client: Any) -> None:
+    for closer in (pubsub, client):
+        try:
+            await closer.aclose()
+        except Exception:
+            pass
+
+
+async def redis_listener(manager: ConnectionManager, redis_url: str, *, retry_delay: float = 5.0) -> None:
     """Subscribe to ``job_events`` and dispatch messages to WebSocket clients.
 
-    This runs as an ``asyncio.Task`` in the FastAPI lifespan.
+    Runs as an ``asyncio.Task`` in the FastAPI lifespan. Resilient to Redis being
+    unavailable: connection failures are logged and retried with a fixed delay so
+    a Redis outage (e.g. at startup) never crashes the app, and cancellation at
+    shutdown is handled cleanly.
     """
     import redis.asyncio as aioredis
 
-    r = aioredis.from_url(redis_url)
-    pubsub = r.pubsub()
-    await pubsub.subscribe("job_events")
-
-    try:
-        async for message in pubsub.listen():
-            await _handle_message(message, manager)
-    except asyncio.CancelledError:
-        pass
-    finally:
-        await pubsub.unsubscribe("job_events")
-        await r.aclose()
+    while True:
+        client = aioredis.from_url(redis_url)
+        pubsub = client.pubsub()
+        try:
+            await pubsub.subscribe("job_events")
+            async for message in pubsub.listen():
+                await _handle_message(message, manager)
+        except asyncio.CancelledError:
+            await _aclose(pubsub, client)
+            raise
+        except Exception:
+            logger.warning("Redis listener error; reconnecting in %.0fs", retry_delay, exc_info=True)
+            await _aclose(pubsub, client)
+        else:
+            await _aclose(pubsub, client)
+        await asyncio.sleep(retry_delay)

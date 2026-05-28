@@ -6,6 +6,11 @@ on:
     paths:
       - "**/*.py"
 
+# The Python project lives in backend/ (pyproject.toml + uv.lock there).
+defaults:
+  run:
+    working-directory: backend
+
 jobs:
   lint:
     name: Lint (Ruff)
@@ -14,35 +19,43 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
         with:
-          python-version: "3.13"
-          cache: "pip"
+          enable-cache: true
+          cache-dependency-glob: "backend/uv.lock"
 
       - name: Install dependencies
-        run: pip install -e ".[actions]"
+        run: uv sync
 
       - name: Ruff Lint
-        run: ruff check .
+        run: uv run ruff check .
 
       - name: Ruff Format Check
-        run: ruff format --check .
+        run: uv run ruff format --check .
 
   test:
     name: Test (pytest)
     runs-on: ubuntu-latest
 
+    # The test suite mocks all I/O (DB, Redis, LLM), so no service containers are
+    # needed. These values only satisfy required settings at import time.
+    env:
+      DATABASE_URL: "postgresql+asyncpg://ci:ci@127.0.0.1:5432/ci"
+      JWT_SECRET: "ci-placeholder-secret-not-for-production-1234567890"
+      REDIS_URL: "redis://127.0.0.1:6379/0"
+
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
         with:
-          python-version: "3.13"
-          cache: "pip"
+          enable-cache: true
+          cache-dependency-glob: "backend/uv.lock"
 
-      - name: Install project with dev dependencies
-        run: pip install -e ".[actions]"
+      - name: Install dependencies
+        run: uv sync
+
       - name: Run tests
-        run: pytest --maxfail=1 --disable-warnings -q
+        run: uv run pytest --maxfail=1 --disable-warnings -q

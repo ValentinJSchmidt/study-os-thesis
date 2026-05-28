@@ -5,12 +5,14 @@ from celery.signals import worker_process_init
 
 celery_app = Celery("study_os_thesis")
 celery_app.config_from_object("app.worker.celery_config")
-celery_app.autodiscover_tasks([
-    "app.theses",
-    "app.chairs",
-    "app.students",
-    "app.chat",
-])
+celery_app.autodiscover_tasks(
+    [
+        "app.theses",
+        "app.chairs",
+        "app.students",
+        "app.chat",
+    ]
+)
 
 
 @worker_process_init.connect
@@ -31,9 +33,5 @@ def _init_worker_engine(**_kwargs: object) -> None:
 
     asyncio.run(db.engine.dispose())
 
-    db.engine = create_async_engine(
-        db.settings.database_url, echo=False, future=True, poolclass=NullPool
-    )
-    db.SessionLocal = async_sessionmaker(
-        db.engine, expire_on_commit=False, class_=db.AsyncSession
-    )
+    db.engine = create_async_engine(db.settings.database_url, echo=False, future=True, poolclass=NullPool)
+    db.SessionLocal = async_sessionmaker(db.engine, expire_on_commit=False, class_=db.AsyncSession)

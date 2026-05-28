@@ -8,6 +8,7 @@ from app.models import ThesisDifficulty, ThesisSource
 
 class SkillsRequired(BaseModel):
     """Structured skills needed for a thesis proposal."""
+
     programming: list[str] = []
     math: list[str] = []
     theory: list[str] = []
@@ -17,6 +18,7 @@ class SkillsRequired(BaseModel):
 
 class GeneratedProposalItem(BaseModel):
     """One proposal as returned by the LLM during agent generation."""
+
     title: str = Field(min_length=3, max_length=500)
     abstract: str = Field(min_length=10, max_length=5000)
     difficulty: ThesisDifficulty = ThesisDifficulty.master

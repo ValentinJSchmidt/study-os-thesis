@@ -57,13 +57,7 @@ class JobRepository:
         limit: int = 50,
         offset: int = 0,
     ) -> list[Job]:
-        stmt = (
-            select(Job)
-            .where(Job.user_id == user_id)
-            .order_by(Job.created_at.desc())
-            .limit(limit)
-            .offset(offset)
-        )
+        stmt = select(Job).where(Job.user_id == user_id).order_by(Job.created_at.desc()).limit(limit).offset(offset)
         if type is not None:
             stmt = stmt.where(Job.type == type)
         if status is not None:

@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, status
 
 from app.auth.deps import CurrentUserDep, require_role
 from app.chairs.deps import ChairServiceDep
-from app.chairs.schemas import ArxivIngestRequest, ChairCreate, ChairDocumentOut, ChairOut, ChairPatch
+from app.chairs.schemas import ArxivIngestRequest, ChairCreate, ChairOut, ChairPatch
 from app.jobs.deps import JobServiceDep
 from app.models import User, UserRole
 from app.models.job import JobType

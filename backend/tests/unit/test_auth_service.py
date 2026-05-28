@@ -75,8 +75,7 @@ class TestLogin:
         user = _make_orm(User, id=1, email="user@test.com", role=UserRole.student, password_hash="stored-hash")
         mock_user_repo.get_by_email.return_value = user
 
-        with patch("app.auth.service.verify_password", new_callable=AsyncMock) as mock_verify, \
-             patch("app.auth.service.create_access_token") as mock_token:
+        with patch("app.auth.service.verify_password", new_callable=AsyncMock) as mock_verify, patch("app.auth.service.create_access_token") as mock_token:
             mock_verify.return_value = True
             mock_token.return_value = "jwt-token-123"
             data = LoginRequest(email="user@test.com", password="correct-pw")

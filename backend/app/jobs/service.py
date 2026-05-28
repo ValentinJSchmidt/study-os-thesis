@@ -40,9 +40,7 @@ class JobService:
             started_at=datetime.now(timezone.utc),
         )
 
-    async def mark_success(
-        self, job_id: uuid.UUID, result_data: dict[str, Any] | None = None
-    ) -> Job:
+    async def mark_success(self, job_id: uuid.UUID, result_data: dict[str, Any] | None = None) -> Job:
         job = await self._repo.get_by_id(job_id)
         if job is None:
             raise NotFoundException("Job", str(job_id))

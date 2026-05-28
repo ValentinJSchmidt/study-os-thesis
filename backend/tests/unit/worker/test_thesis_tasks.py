@@ -49,9 +49,11 @@ class TestEmbedThesisWork:
         embed_client.embed.return_value = [0.1] * 8
         settings = SimpleNamespace(ollama_embed_model="embed-model")
 
-        with patch("app.db.SessionLocal", return_value=_acm(session)), \
-             patch("app.theses.repository.ThesisRepository", return_value=repo), \
-             patch("app.llm.factory.build_embed_client", return_value=embed_client):
+        with (
+            patch("app.db.SessionLocal", return_value=_acm(session)),
+            patch("app.theses.repository.ThesisRepository", return_value=repo),
+            patch("app.llm.factory.build_embed_client", return_value=embed_client),
+        ):
             result = await _embed_thesis_work(1, settings)
 
         embed_client.embed.assert_awaited_once_with("embed-model", "My Title\n\nMy Abstract")
@@ -65,8 +67,10 @@ class TestEmbedThesisWork:
         repo.get_by_id.return_value = None
         settings = SimpleNamespace(ollama_embed_model="m")
 
-        with patch("app.db.SessionLocal", return_value=_acm(session)), \
-             patch("app.theses.repository.ThesisRepository", return_value=repo), \
-             patch("app.llm.factory.build_embed_client", return_value=AsyncMock()):
+        with (
+            patch("app.db.SessionLocal", return_value=_acm(session)),
+            patch("app.theses.repository.ThesisRepository", return_value=repo),
+            patch("app.llm.factory.build_embed_client", return_value=AsyncMock()),
+        ):
             with pytest.raises(NotFoundException):
                 await _embed_thesis_work(999, settings)

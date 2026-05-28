@@ -27,18 +27,14 @@ async def _parse_transcript_work(
 
     pdf_bytes = await fetch_pdf(settings.redis_url, job_id)
     if not pdf_bytes:
-        raise BadRequestException(
-            "Transcript PDF was not found in temporary storage (it may have expired)."
-        )
+        raise BadRequestException("Transcript PDF was not found in temporary storage (it may have expired).")
 
     async with SessionLocal() as session:
         repo = StudentRepository(session)
         chat_client = build_chat_client(settings)
         embed_client = build_embed_client(settings)
         svc = StudentService(repo, chat_client, embed_client, settings)
-        student = await svc.upload_transcript(
-            user_id, pdf_bytes, program=program, semester=semester
-        )
+        student = await svc.upload_transcript(user_id, pdf_bytes, program=program, semester=semester)
 
     await delete_pdf(settings.redis_url, job_id)
     return {
@@ -73,8 +69,6 @@ def parse_transcript(
         job_id=job_id,
         user_id=user_id,
         redis_url=settings.redis_url,
-        work=lambda: _parse_transcript_work(
-            user_id, job_id, settings, program, semester
-        ),
+        work=lambda: _parse_transcript_work(user_id, job_id, settings, program, semester),
         permanent_exceptions=(NotFoundException, BadRequestException),
     )

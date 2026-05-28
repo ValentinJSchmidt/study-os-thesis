@@ -35,13 +35,15 @@ class TestParseTranscriptWork:
         svc.upload_transcript.return_value = SimpleNamespace(courses=[1, 2, 3])
         settings = SimpleNamespace(redis_url="redis://x", ollama_embed_model="m")
 
-        with patch("app.students.pdf_store.fetch_pdf", AsyncMock(return_value=b"PDFBYTES")) as fetch, \
-             patch("app.students.pdf_store.delete_pdf", AsyncMock()) as delete, \
-             patch("app.db.SessionLocal", return_value=_acm(session)), \
-             patch("app.students.repository.StudentRepository", return_value=AsyncMock()), \
-             patch("app.students.service.StudentService", return_value=svc), \
-             patch("app.llm.factory.build_chat_client", return_value=AsyncMock()), \
-             patch("app.llm.factory.build_embed_client", return_value=AsyncMock()):
+        with (
+            patch("app.students.pdf_store.fetch_pdf", AsyncMock(return_value=b"PDFBYTES")) as fetch,
+            patch("app.students.pdf_store.delete_pdf", AsyncMock()) as delete,
+            patch("app.db.SessionLocal", return_value=_acm(session)),
+            patch("app.students.repository.StudentRepository", return_value=AsyncMock()),
+            patch("app.students.service.StudentService", return_value=svc),
+            patch("app.llm.factory.build_chat_client", return_value=AsyncMock()),
+            patch("app.llm.factory.build_embed_client", return_value=AsyncMock()),
+        ):
             result = await _parse_transcript_work(1, "job-1", settings, "CS", 4)
 
         fetch.assert_awaited_once_with("redis://x", "job-1")

@@ -49,10 +49,12 @@ class TestIngestArxivWork:
         svc.ingest_arxiv_paper.return_value = SimpleNamespace(id=42, title="Paper")
         settings = SimpleNamespace(ollama_embed_model="m")
 
-        with patch("app.db.SessionLocal", return_value=_acm(session)), \
-             patch("app.chairs.repository.ChairRepository", return_value=AsyncMock()), \
-             patch("app.chairs.service.ChairService", return_value=svc), \
-             patch("app.llm.factory.build_embed_client", return_value=AsyncMock()):
+        with (
+            patch("app.db.SessionLocal", return_value=_acm(session)),
+            patch("app.chairs.repository.ChairRepository", return_value=AsyncMock()),
+            patch("app.chairs.service.ChairService", return_value=svc),
+            patch("app.llm.factory.build_embed_client", return_value=AsyncMock()),
+        ):
             result = await _ingest_arxiv_work(1, "2301.07041", settings)
 
         svc.ingest_arxiv_paper.assert_awaited_once()
@@ -70,9 +72,11 @@ class TestEmbedChairWork:
         embed_client.embed.return_value = [0.2] * 4
         settings = SimpleNamespace(ollama_embed_model="m")
 
-        with patch("app.db.SessionLocal", return_value=_acm(session)), \
-             patch("app.chairs.repository.ChairRepository", return_value=repo), \
-             patch("app.llm.factory.build_embed_client", return_value=embed_client):
+        with (
+            patch("app.db.SessionLocal", return_value=_acm(session)),
+            patch("app.chairs.repository.ChairRepository", return_value=repo),
+            patch("app.llm.factory.build_embed_client", return_value=embed_client),
+        ):
             from app.models.chair import ChairDocumentKind
 
             result = await _embed_chair_work(1, settings)
@@ -90,8 +94,10 @@ class TestEmbedChairWork:
         repo.get_by_id.return_value = None
         settings = SimpleNamespace(ollama_embed_model="m")
 
-        with patch("app.db.SessionLocal", return_value=_acm(session)), \
-             patch("app.chairs.repository.ChairRepository", return_value=repo), \
-             patch("app.llm.factory.build_embed_client", return_value=AsyncMock()):
+        with (
+            patch("app.db.SessionLocal", return_value=_acm(session)),
+            patch("app.chairs.repository.ChairRepository", return_value=repo),
+            patch("app.llm.factory.build_embed_client", return_value=AsyncMock()),
+        ):
             with pytest.raises(NotFoundException):
                 await _embed_chair_work(404, settings)

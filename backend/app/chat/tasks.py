@@ -11,9 +11,7 @@ from app.worker.task_runner import execute_task
 logger = logging.getLogger(__name__)
 
 
-async def _process_chat_turn_work(
-    session_id: int, user_id: int, content: str, settings: Any
-) -> dict:
+async def _process_chat_turn_work(session_id: int, user_id: int, content: str, settings: Any) -> dict:
     from app.chairs.repository import ChairRepository
     from app.chat.repository import ChatRepository
     from app.chat.service import ChatService
@@ -58,9 +56,7 @@ def process_chat_turn(
     from app.config import get_settings
 
     settings = get_settings()
-    logger.info(
-        "process_chat_turn: session_id=%d user_id=%d job_id=%s", session_id, user_id, job_id
-    )
+    logger.info("process_chat_turn: session_id=%d user_id=%d job_id=%s", session_id, user_id, job_id)
 
     return execute_task(
         self,

@@ -4,7 +4,7 @@ These tests will FAIL until app.ws.listener is implemented.
 """
 
 import json
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
 
 import pytest
 

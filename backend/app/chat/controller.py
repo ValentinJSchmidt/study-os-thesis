@@ -2,7 +2,7 @@ from fastapi import APIRouter, status
 
 from app.auth.deps import CurrentUserDep
 from app.chat.deps import ChatServiceDep
-from app.chat.schemas import MessageIn, MessageOut, SendMessageResponse, SessionOut
+from app.chat.schemas import MessageIn, MessageOut, SessionOut
 from app.jobs.deps import JobServiceDep
 from app.models import ChatMessage, ChatSession
 from app.models.job import JobType
@@ -54,6 +54,7 @@ async def send_message(
     chat = await chat_service._chat_repo.get_session(session_id)
     if not chat or chat.user_id != user.id:
         from app.exceptions import NotFoundException
+
         raise NotFoundException("Session", session_id)
 
     job = await job_service.create_job(

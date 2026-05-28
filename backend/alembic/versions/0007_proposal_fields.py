@@ -4,6 +4,7 @@ Revision ID: 0007
 Revises: 0006
 Create Date: 2026-05-19
 """
+
 from typing import Sequence, Union
 
 import sqlalchemy as sa
@@ -17,9 +18,7 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.execute(
-        "CREATE TYPE thesis_difficulty AS ENUM ('bachelor', 'master', 'phd')"
-    )
+    op.execute("CREATE TYPE thesis_difficulty AS ENUM ('bachelor', 'master', 'phd')")
     op.add_column(
         "theses",
         sa.Column(

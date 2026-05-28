@@ -19,11 +19,13 @@ def mock_job_repo():
 @pytest.fixture
 def job_service(mock_job_repo):
     from app.jobs.service import JobService
+
     return JobService(mock_job_repo)
 
 
 def _make_job(**overrides):
     from app.models.job import JobStatus, JobType
+
     defaults = dict(
         id=uuid.uuid4(),
         type=JobType.embed_thesis,
@@ -45,6 +47,7 @@ def _make_job(**overrides):
 class TestCreateJob:
     async def test_sets_pending_status(self, job_service, mock_job_repo):
         from app.models.job import JobStatus, JobType
+
         mock_job_repo.create.return_value = _make_job()
 
         result = await job_service.create_job(
@@ -58,6 +61,7 @@ class TestCreateJob:
 
     async def test_stores_input_data(self, job_service, mock_job_repo):
         from app.models.job import JobType
+
         mock_job_repo.create.return_value = _make_job(input_data={"thesis_id": 5})
 
         result = await job_service.create_job(
@@ -71,6 +75,7 @@ class TestCreateJob:
 
     async def test_assigns_user_id(self, job_service, mock_job_repo):
         from app.models.job import JobType
+
         mock_job_repo.create.return_value = _make_job(user_id=42)
 
         result = await job_service.create_job(
@@ -84,6 +89,7 @@ class TestCreateJob:
 
     async def test_stores_celery_task_id(self, job_service, mock_job_repo):
         from app.models.job import JobType
+
         mock_job_repo.create.return_value = _make_job(celery_task_id="celery-xyz")
 
         result = await job_service.create_job(
@@ -100,6 +106,7 @@ class TestCreateJob:
 class TestMarkStatus:
     async def test_mark_started(self, job_service, mock_job_repo):
         from app.models.job import JobStatus
+
         job = _make_job()
         mock_job_repo.get_by_id.return_value = job
         mock_job_repo.update.return_value = _make_job(
@@ -114,6 +121,7 @@ class TestMarkStatus:
 
     async def test_mark_success(self, job_service, mock_job_repo):
         from app.models.job import JobStatus
+
         job = _make_job()
         mock_job_repo.get_by_id.return_value = job
         mock_job_repo.update.return_value = _make_job(
@@ -130,6 +138,7 @@ class TestMarkStatus:
 
     async def test_mark_failure(self, job_service, mock_job_repo):
         from app.models.job import JobStatus
+
         job = _make_job()
         mock_job_repo.get_by_id.return_value = job
         mock_job_repo.update.return_value = _make_job(
@@ -146,11 +155,10 @@ class TestMarkStatus:
 
     async def test_mark_retry_increments_attempts(self, job_service, mock_job_repo):
         from app.models.job import JobStatus
+
         job = _make_job(attempts=0)
         mock_job_repo.get_by_id.return_value = job
-        mock_job_repo.update.return_value = _make_job(
-            status=JobStatus.retry, attempts=1
-        )
+        mock_job_repo.update.return_value = _make_job(status=JobStatus.retry, attempts=1)
 
         result = await job_service.mark_retry(job.id)
 
@@ -170,6 +178,7 @@ class TestGetJob:
 
     async def test_raises_not_found_for_wrong_user(self, job_service, mock_job_repo):
         from app.exceptions import NotFoundException
+
         job = _make_job(user_id=99)
         mock_job_repo.get_by_id.return_value = job
 
@@ -178,6 +187,7 @@ class TestGetJob:
 
     async def test_raises_not_found_for_missing_id(self, job_service, mock_job_repo):
         from app.exceptions import NotFoundException
+
         mock_job_repo.get_by_id.return_value = None
 
         with pytest.raises(NotFoundException):
@@ -196,23 +206,23 @@ class TestListJobs:
 
     async def test_filters_by_type(self, job_service, mock_job_repo):
         from app.models.job import JobType
+
         mock_job_repo.list_by_user.return_value = []
 
         await job_service.list_jobs(user_id=1, type=JobType.embed_thesis)
 
         call_kwargs = mock_job_repo.list_by_user.call_args
-        assert call_kwargs.kwargs.get("type") == JobType.embed_thesis or \
-               (len(call_kwargs.args) > 1 and call_kwargs.args[1] == JobType.embed_thesis)
+        assert call_kwargs.kwargs.get("type") == JobType.embed_thesis or (len(call_kwargs.args) > 1 and call_kwargs.args[1] == JobType.embed_thesis)
 
     async def test_filters_by_status(self, job_service, mock_job_repo):
         from app.models.job import JobStatus
+
         mock_job_repo.list_by_user.return_value = []
 
         await job_service.list_jobs(user_id=1, status=JobStatus.pending)
 
         call_kwargs = mock_job_repo.list_by_user.call_args
-        assert call_kwargs.kwargs.get("status") == JobStatus.pending or \
-               (len(call_kwargs.args) > 2 and call_kwargs.args[2] == JobStatus.pending)
+        assert call_kwargs.kwargs.get("status") == JobStatus.pending or (len(call_kwargs.args) > 2 and call_kwargs.args[2] == JobStatus.pending)
 
 
 @pytest.mark.unit

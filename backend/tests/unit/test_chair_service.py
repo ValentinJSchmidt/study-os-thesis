@@ -30,9 +30,7 @@ def _make_document(**overrides) -> ChairDocument:
 
 @pytest.mark.unit
 class TestCreateChair:
-    async def test_embeds_description(
-        self, chair_service, mock_llm_embed, mock_chair_repo
-    ):
+    async def test_embeds_description(self, chair_service, mock_llm_embed, mock_chair_repo):
         chair = _make_chair()
         mock_chair_repo.create.return_value = chair
         mock_chair_repo.get_by_id.return_value = chair
@@ -50,9 +48,7 @@ class TestCreateChair:
             "Description that is long enough for validation.",
         )
 
-    async def test_stores_description_document(
-        self, chair_service, mock_chair_repo, mock_llm_embed
-    ):
+    async def test_stores_description_document(self, chair_service, mock_chair_repo, mock_llm_embed):
         chair = _make_chair()
         mock_chair_repo.create.return_value = chair
         mock_chair_repo.get_by_id.return_value = chair
@@ -70,9 +66,7 @@ class TestCreateChair:
         assert call_kwargs["kind"] == ChairDocumentKind.description
         assert call_kwargs["content"] == "Description that is long enough for validation."
 
-    async def test_embed_failure_still_creates_chair(
-        self, chair_service, mock_chair_repo, mock_llm_embed
-    ):
+    async def test_embed_failure_still_creates_chair(self, chair_service, mock_chair_repo, mock_llm_embed):
         chair = _make_chair()
         mock_chair_repo.create.return_value = chair
         mock_chair_repo.get_by_id.return_value = chair
@@ -90,9 +84,7 @@ class TestCreateChair:
         call_kwargs = mock_chair_repo.add_document.call_args.kwargs
         assert call_kwargs["embedding"] is None
 
-    async def test_embed_false_skips_embedding_and_document(
-        self, chair_service, mock_chair_repo, mock_llm_embed
-    ):
+    async def test_embed_false_skips_embedding_and_document(self, chair_service, mock_chair_repo, mock_llm_embed):
         """With embed=False the worker creates the description document instead."""
         chair = _make_chair()
         mock_chair_repo.create.return_value = chair

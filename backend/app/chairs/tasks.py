@@ -40,9 +40,7 @@ async def _embed_chair_work(chair_id: int, settings: Any) -> dict:
             raise NotFoundException("Chair", chair_id)
         embed_client = build_embed_client(settings)
         try:
-            embedding = await embed_client.embed(
-                settings.ollama_embed_model, chair.short_description
-            )
+            embedding = await embed_client.embed(settings.ollama_embed_model, chair.short_description)
         except Exception:
             embedding = None
         await repo.add_document(
@@ -63,16 +61,12 @@ async def _embed_chair_work(chair_id: int, settings: Any) -> dict:
     soft_time_limit=120,
     time_limit=180,
 )
-def ingest_arxiv_paper(
-    self: Any, chair_id: int, arxiv_id: str, user_id: int, job_id: str
-) -> dict:
+def ingest_arxiv_paper(self: Any, chair_id: int, arxiv_id: str, user_id: int, job_id: str) -> dict:
     """Fetch an ArXiv paper, embed its abstract, and store it."""
     from app.config import get_settings
 
     settings = get_settings()
-    logger.info(
-        "ingest_arxiv_paper: chair_id=%d arxiv_id=%s job_id=%s", chair_id, arxiv_id, job_id
-    )
+    logger.info("ingest_arxiv_paper: chair_id=%d arxiv_id=%s job_id=%s", chair_id, arxiv_id, job_id)
 
     return execute_task(
         self,

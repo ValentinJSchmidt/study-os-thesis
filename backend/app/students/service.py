@@ -97,7 +97,10 @@ class StudentService:
     ) -> Student:
         _logger.info(
             "Transcript upload started: user_id=%d size=%d bytes program=%r semester=%r",
-            user_id, len(pdf_bytes), program, semester,
+            user_id,
+            len(pdf_bytes),
+            program,
+            semester,
         )
 
         _logger.info("Step 1/5 — Extracting text from PDF (user_id=%d)", user_id)
@@ -108,7 +111,8 @@ class StudentService:
 
         _logger.info(
             "Step 2/5 — Sending transcript to LLM for structured extraction (model=%s user_id=%d)",
-            self._settings.effective_extract_model, user_id,
+            self._settings.effective_extract_model,
+            user_id,
         )
         parse_result = await self._parse_transcript_with_llm(raw_text)
         _logger.info("Step 2/5 — LLM extraction complete: %d courses parsed (user_id=%d)", len(parse_result.courses), user_id)
@@ -118,7 +122,8 @@ class StudentService:
 
         _logger.info(
             "Step 4/5 — Creating course profile embedding (model=%s user_id=%d)",
-            self._settings.ollama_embed_model, user_id,
+            self._settings.ollama_embed_model,
+            user_id,
         )
         profile_embedding = await self._embed_course_profile(parse_result.courses)
         if profile_embedding is not None:
@@ -128,7 +133,8 @@ class StudentService:
 
         _logger.info(
             "Step 5/5 — Persisting student profile and %d courses (user_id=%d)",
-            len(parse_result.courses), user_id,
+            len(parse_result.courses),
+            user_id,
         )
         student = await self._student_repo.upsert(
             user_id,
@@ -171,16 +177,14 @@ class StudentService:
             data: Any = json.loads(content)
         except json.JSONDecodeError as exc:
             _logger.error("LLM returned non-JSON transcript parse result: %s", content[:500])
-            raise BadRequestException(
-                "The LLM could not parse the transcript into structured data. "
-                "Please ensure the PDF is a valid text-based transcript."
-            ) from exc
+            raise BadRequestException("The LLM could not parse the transcript into structured data. Please ensure the PDF is a valid text-based transcript.") from exc
         try:
             return TranscriptParseResult.model_validate(data)
         except Exception as exc:
             _logger.warning(
                 "Strict validation failed (%s), attempting per-course fallback: %s",
-                exc, data,
+                exc,
+                data,
             )
         # Fallback: validate each course individually, skip invalid ones
         valid_courses: list[StudentCourseItem] = []
@@ -192,9 +196,7 @@ class StudentService:
                 _logger.warning("Skipping invalid course row (%s): %s", course_exc, raw)
         if not valid_courses:
             _logger.error("No valid courses could be extracted from: %s", data)
-            raise BadRequestException(
-                "The LLM could not produce any valid course rows from the transcript."
-            )
+            raise BadRequestException("The LLM could not produce any valid course rows from the transcript.")
         gpa_raw = data.get("gpa") if isinstance(data, dict) else None
         try:
             gpa_val = float(gpa_raw) if gpa_raw is not None else None
@@ -202,16 +204,11 @@ class StudentService:
             gpa_val = None
         return TranscriptParseResult(gpa=gpa_val, courses=valid_courses)
 
-    async def _embed_course_profile(
-        self, courses: list[StudentCourseItem]
-    ) -> list[float] | None:
+    async def _embed_course_profile(self, courses: list[StudentCourseItem]) -> list[float] | None:
         if not courses:
             _logger.warning("No courses to embed — profile_embedding will be null.")
             return None
-        parts = [
-            f"{c.course_name} ({c.credits} ECTS)" if c.credits else c.course_name
-            for c in courses
-        ]
+        parts = [f"{c.course_name} ({c.credits} ECTS)" if c.credits else c.course_name for c in courses]
         text = "; ".join(parts)
         _logger.info("Embedding course profile: %d courses, %d chars of text", len(courses), len(text))
         try:
@@ -242,9 +239,7 @@ async def _extract_pdf_text(pdf_bytes: bytes) -> str:
         try:
             import pdfplumber
         except ImportError as exc:
-            raise RuntimeError(
-                "pdfplumber is not installed. Add it to pyproject.toml: pdfplumber>=0.11"
-            ) from exc
+            raise RuntimeError("pdfplumber is not installed. Add it to pyproject.toml: pdfplumber>=0.11") from exc
 
         pages_text: list[str] = []
         with pdfplumber.open(io.BytesIO(data)) as pdf:

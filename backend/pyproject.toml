@@ -72,9 +72,8 @@ select = [
 fixable = ["ALL"]
 
 ignore = [
-    "ANN101", # Missing type annotation for self in method
-    "ANN102", # Missing type annotation for cls in classmethod,
     "ANN204", # Return types __init__
+    "ANN401", # Dynamically typed expressions (Any) — used intentionally (Celery self, dynamic payloads)
     "E501",   # Line too long
     "I001",   # Imports are incorrectly sorted.
 ]

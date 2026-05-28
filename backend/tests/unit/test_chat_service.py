@@ -168,8 +168,7 @@ class TestSendMessage:
 
         assert mock_llm_chat.chat.call_count == MAX_TOOL_ITERATIONS
         last_create = mock_chat_repo.create_message.call_args_list[-1]
-        assert "stopped" in last_create.kwargs.get("content", "").lower() or \
-               "limit" in last_create.kwargs.get("content", "").lower()
+        assert "stopped" in last_create.kwargs.get("content", "").lower() or "limit" in last_create.kwargs.get("content", "").lower()
 
     async def test_empty_message_raises(self, chat_service):
         with pytest.raises(BadRequestException, match="Empty message"):
@@ -233,9 +232,7 @@ class TestToolSearchChairs:
 @pytest.mark.unit
 class TestToolUnknown:
     async def test_unknown_tool_returns_error(self, chat_service):
-        result = await chat_service._execute_tool_call(
-            "nonexistent_tool", {}, user_id=1, chat_session_id=1
-        )
+        result = await chat_service._execute_tool_call("nonexistent_tool", {}, user_id=1, chat_session_id=1)
 
         data = json.loads(result)
         assert "error" in data

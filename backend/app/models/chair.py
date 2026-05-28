@@ -33,17 +33,11 @@ class Chair(Base):
     short_description: Mapped[str] = mapped_column(Text, nullable=False)
     professor_name: Mapped[str] = mapped_column(String(255), nullable=False)
     # Optional link to a registered professor account.
-    professor_user_id: Mapped[int | None] = mapped_column(
-        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
-    )
+    professor_user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     website_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
-    documents: Mapped[list["ChairDocument"]] = relationship(
-        "ChairDocument", back_populates="chair", cascade="all, delete-orphan"
-    )
+    documents: Mapped[list["ChairDocument"]] = relationship("ChairDocument", back_populates="chair", cascade="all, delete-orphan")
 
 
 class ChairDocument(Base):
@@ -60,12 +54,8 @@ class ChairDocument(Base):
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    chair_id: Mapped[int] = mapped_column(
-        ForeignKey("chairs.id", ondelete="CASCADE"), nullable=False, index=True
-    )
-    kind: Mapped[ChairDocumentKind] = mapped_column(
-        Enum(ChairDocumentKind, name="chair_document_kind"), nullable=False
-    )
+    chair_id: Mapped[int] = mapped_column(ForeignKey("chairs.id", ondelete="CASCADE"), nullable=False, index=True)
+    kind: Mapped[ChairDocumentKind] = mapped_column(Enum(ChairDocumentKind, name="chair_document_kind"), nullable=False)
     # Paper title (null for description documents).
     title: Mapped[str | None] = mapped_column(String(500), nullable=True)
     # The text that was embedded.
@@ -73,11 +63,7 @@ class ChairDocument(Base):
     # ArXiv identifier (e.g. "2301.07041"), null for description documents.
     arxiv_id: Mapped[str | None] = mapped_column(String(50), nullable=True)
     published_year: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
-    embedding: Mapped[list[float] | None] = mapped_column(
-        Vector(EMBEDDING_DIM), nullable=True
-    )
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
+    embedding: Mapped[list[float] | None] = mapped_column(Vector(EMBEDDING_DIM), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     chair: Mapped["Chair"] = relationship("Chair", back_populates="documents")

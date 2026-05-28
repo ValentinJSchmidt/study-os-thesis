@@ -34,9 +34,7 @@ _admin_user = _make_user(2, "admin@test.com", UserRole.admin)
 
 def _mock_llm() -> AsyncMock:
     mock = AsyncMock()
-    mock.chat.return_value = {
-        "message": {"role": "assistant", "content": "OK", "tool_calls": []}
-    }
+    mock.chat.return_value = {"message": {"role": "assistant", "content": "OK", "tool_calls": []}}
     mock.embed.return_value = [0.1] * EMBEDDING_DIM
     mock.aclose.return_value = None
     return mock
@@ -72,10 +70,18 @@ def _mock_job_service():
 def _mock_thesis_service():
     svc = AsyncMock()
     fake_thesis = SimpleNamespace(
-        id=1, title="Test", abstract="Abstract", chair_id=None,
-        supervisor_id=None, submitter_id=2, source="professor",
-        difficulty=None, skills_required=None, generated_for_user_id=None,
-        chat_session_id=None, embedding=None,
+        id=1,
+        title="Test",
+        abstract="Abstract",
+        chair_id=None,
+        supervisor_id=None,
+        submitter_id=2,
+        source="professor",
+        difficulty=None,
+        skills_required=None,
+        generated_for_user_id=None,
+        chat_session_id=None,
+        embedding=None,
         created_at=datetime(2025, 1, 1, tzinfo=timezone.utc),
     )
     svc.create_thesis.return_value = fake_thesis
@@ -87,8 +93,12 @@ def _mock_thesis_service():
 def _mock_chair_service():
     svc = AsyncMock()
     fake_chair = SimpleNamespace(
-        id=1, name="Chair", short_description="Desc", professor_name="Prof",
-        professor_user_id=None, website_url=None,
+        id=1,
+        name="Chair",
+        short_description="Desc",
+        professor_name="Prof",
+        professor_user_id=None,
+        website_url=None,
         created_at=datetime(2025, 1, 1, tzinfo=timezone.utc),
         documents=[],
     )
@@ -98,8 +108,12 @@ def _mock_chair_service():
     svc.update_chair.return_value = fake_chair
     svc.delete_chair.return_value = None
     svc.ingest_arxiv_paper.return_value = SimpleNamespace(
-        id=1, kind="paper", title="Paper", content="Abstract",
-        arxiv_id="2301.07041", published_year=2023,
+        id=1,
+        kind="paper",
+        title="Paper",
+        content="Abstract",
+        arxiv_id="2301.07041",
+        published_year=2023,
         created_at=datetime(2025, 1, 1, tzinfo=timezone.utc),
     )
     svc.delete_document.return_value = None
@@ -109,7 +123,10 @@ def _mock_chair_service():
 def _mock_student_service():
     svc = AsyncMock()
     fake_profile = SimpleNamespace(
-        user_id=1, program="CS", semester=4, gpa=1.7,
+        user_id=1,
+        program="CS",
+        semester=4,
+        gpa=1.7,
         updated_at=datetime(2025, 1, 1, tzinfo=timezone.utc),
         courses=[],
     )
@@ -121,7 +138,9 @@ def _mock_student_service():
 def _mock_chat_service():
     svc = AsyncMock()
     fake_session = SimpleNamespace(
-        id=1, user_id=1, created_at=datetime(2025, 1, 1, tzinfo=timezone.utc),
+        id=1,
+        user_id=1,
+        created_at=datetime(2025, 1, 1, tzinfo=timezone.utc),
     )
     svc.create_session.return_value = fake_session
     svc.list_sessions.return_value = []
@@ -144,6 +163,7 @@ def _mock_celery_task():
 def _app():
     """Create the FastAPI app with all dependency overrides."""
     import os
+
     os.environ.setdefault("DATABASE_URL", "postgresql+asyncpg://test:test@localhost:5433/test")
     os.environ.setdefault("JWT_SECRET", "test-secret-for-e2e-tests-1234567890")
     os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
@@ -158,6 +178,7 @@ def _app():
     app.state.llm_available = True
 
     from app.ws.manager import ConnectionManager
+
     app.state.ws_manager = ConnectionManager()
 
     return app
@@ -192,12 +213,14 @@ def _celery_patch():
     Also patches the transcript PDF store so e2e tests don't require a live
     Redis instance.
     """
-    with patch("app.theses.tasks.embed_thesis.delay", return_value=_mock_celery_task()) as t, \
-         patch("app.chairs.tasks.embed_chair_description.delay", return_value=_mock_celery_task()) as c1, \
-         patch("app.chairs.tasks.ingest_arxiv_paper.delay", return_value=_mock_celery_task()) as c2, \
-         patch("app.students.tasks.parse_transcript.delay", return_value=_mock_celery_task()) as s, \
-         patch("app.chat.tasks.process_chat_turn.delay", return_value=_mock_celery_task()) as ch, \
-         patch("app.students.pdf_store.store_pdf", new=AsyncMock()):
+    with (
+        patch("app.theses.tasks.embed_thesis.delay", return_value=_mock_celery_task()) as t,
+        patch("app.chairs.tasks.embed_chair_description.delay", return_value=_mock_celery_task()) as c1,
+        patch("app.chairs.tasks.ingest_arxiv_paper.delay", return_value=_mock_celery_task()) as c2,
+        patch("app.students.tasks.parse_transcript.delay", return_value=_mock_celery_task()) as s,
+        patch("app.chat.tasks.process_chat_turn.delay", return_value=_mock_celery_task()) as ch,
+        patch("app.students.pdf_store.store_pdf", new=AsyncMock()),
+    ):
         yield {
             "embed_thesis": t,
             "embed_chair_description": c1,
@@ -219,6 +242,7 @@ async def client(_app, _celery_patch) -> AsyncIterator[AsyncClient]:
 async def admin_client(_app, _celery_patch) -> AsyncIterator[AsyncClient]:
     """HTTP client authenticated as an admin user."""
     from app.auth.deps import get_current_user
+
     _app.dependency_overrides[get_current_user] = lambda: _admin_user
     transport = ASGITransport(app=_app)
     async with AsyncClient(transport=transport, base_url="http://test") as c:

@@ -28,21 +28,15 @@ def _make_thesis(**overrides) -> Thesis:
 
 @pytest.mark.unit
 class TestCreateThesis:
-    async def test_embeds_title_and_abstract(
-        self, thesis_service, mock_llm_embed, mock_thesis_repo, fake_admin
-    ):
+    async def test_embeds_title_and_abstract(self, thesis_service, mock_llm_embed, mock_thesis_repo, fake_admin):
         mock_thesis_repo.create.return_value = _make_thesis()
         data = ThesisCreate(title="My Title", abstract="My long abstract text here.")
 
         await thesis_service.create_thesis(data, fake_admin)
 
-        mock_llm_embed.embed.assert_called_once_with(
-            "test-embed-model", "My Title\n\nMy long abstract text here."
-        )
+        mock_llm_embed.embed.assert_called_once_with("test-embed-model", "My Title\n\nMy long abstract text here.")
 
-    async def test_admin_sets_source_professor(
-        self, thesis_service, mock_thesis_repo, fake_admin
-    ):
+    async def test_admin_sets_source_professor(self, thesis_service, mock_thesis_repo, fake_admin):
         mock_thesis_repo.create.return_value = _make_thesis()
         data = ThesisCreate(title="Title Here", abstract="Abstract text long enough.")
 
@@ -51,9 +45,7 @@ class TestCreateThesis:
         call_kwargs = mock_thesis_repo.create.call_args.kwargs
         assert call_kwargs["source"] == ThesisSource.professor
 
-    async def test_student_sets_source_student(
-        self, thesis_service, mock_thesis_repo, fake_user
-    ):
+    async def test_student_sets_source_student(self, thesis_service, mock_thesis_repo, fake_user):
         mock_thesis_repo.create.return_value = _make_thesis()
         data = ThesisCreate(title="Title Here", abstract="Abstract text long enough.")
 
@@ -62,9 +54,7 @@ class TestCreateThesis:
         call_kwargs = mock_thesis_repo.create.call_args.kwargs
         assert call_kwargs["source"] == ThesisSource.student
 
-    async def test_supervisor_validates_exists(
-        self, thesis_service, mock_user_repo, fake_admin
-    ):
+    async def test_supervisor_validates_exists(self, thesis_service, mock_user_repo, fake_admin):
         mock_user_repo.get_by_id.return_value = None
         data = ThesisCreate(
             title="Title Here",
@@ -75,9 +65,7 @@ class TestCreateThesis:
         with pytest.raises(BadRequestException, match="supervisor_id must reference an admin"):
             await thesis_service.create_thesis(data, fake_admin)
 
-    async def test_supervisor_validates_is_admin(
-        self, thesis_service, mock_user_repo, fake_admin
-    ):
+    async def test_supervisor_validates_is_admin(self, thesis_service, mock_user_repo, fake_admin):
         student_supervisor = _make_orm(User, id=99, role=UserRole.student)
         mock_user_repo.get_by_id.return_value = student_supervisor
 
@@ -90,9 +78,7 @@ class TestCreateThesis:
         with pytest.raises(BadRequestException, match="supervisor_id must reference an admin"):
             await thesis_service.create_thesis(data, fake_admin)
 
-    async def test_persists_and_commits(
-        self, thesis_service, mock_thesis_repo, fake_admin
-    ):
+    async def test_persists_and_commits(self, thesis_service, mock_thesis_repo, fake_admin):
         mock_thesis_repo.create.return_value = _make_thesis()
         data = ThesisCreate(title="Title Here", abstract="Abstract text long enough.")
 
@@ -101,9 +87,7 @@ class TestCreateThesis:
         mock_thesis_repo.create.assert_called_once()
         mock_thesis_repo.commit.assert_called_once()
 
-    async def test_embed_false_skips_embedding(
-        self, thesis_service, mock_llm_embed, mock_thesis_repo, fake_admin
-    ):
+    async def test_embed_false_skips_embedding(self, thesis_service, mock_llm_embed, mock_thesis_repo, fake_admin):
         """With embed=False the controller defers embedding to the worker."""
         mock_thesis_repo.create.return_value = _make_thesis()
         data = ThesisCreate(title="Title Here", abstract="Abstract text long enough.")
@@ -116,9 +100,7 @@ class TestCreateThesis:
 
 @pytest.mark.unit
 class TestListTheses:
-    async def test_passes_limit_and_offset(
-        self, thesis_service, mock_thesis_repo
-    ):
+    async def test_passes_limit_and_offset(self, thesis_service, mock_thesis_repo):
         mock_thesis_repo.list.return_value = []
 
         await thesis_service.list_theses(limit=10, offset=5)

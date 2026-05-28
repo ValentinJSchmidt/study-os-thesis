@@ -45,13 +45,7 @@ class ChairRepository:
         return await self._session.scalar(stmt)
 
     async def list(self, limit: int = 100, offset: int = 0) -> list[Chair]:
-        rows = await self._session.scalars(
-            select(Chair)
-            .options(selectinload(Chair.documents))
-            .order_by(Chair.name)
-            .limit(limit)
-            .offset(offset)
-        )
+        rows = await self._session.scalars(select(Chair).options(selectinload(Chair.documents)).order_by(Chair.name).limit(limit).offset(offset))
         return list(rows)
 
     async def update(self, chair: Chair, **fields: object) -> Chair:
@@ -72,9 +66,7 @@ class ChairRepository:
     async def get_document(self, doc_id: int) -> ChairDocument | None:
         return await self._session.get(ChairDocument, doc_id)
 
-    async def get_document_by_arxiv(
-        self, chair_id: int, arxiv_id: str
-    ) -> ChairDocument | None:
+    async def get_document_by_arxiv(self, chair_id: int, arxiv_id: str) -> ChairDocument | None:
         return await self._session.scalar(
             select(ChairDocument).where(
                 ChairDocument.chair_id == chair_id,
@@ -111,9 +103,7 @@ class ChairRepository:
         await self._session.delete(doc)
         await self._session.flush()
 
-    async def search_by_embedding(
-        self, embedding: list[float], k: int = 5
-    ) -> list[dict]:
+    async def search_by_embedding(self, embedding: list[float], k: int = 5) -> list[dict]:
         """ANN search over chair_documents; returns top-k with chair metadata."""
         stmt = (
             select(

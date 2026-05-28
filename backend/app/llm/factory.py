@@ -33,6 +33,7 @@ def build_chat_client(settings: Settings) -> LLMPort:
     match provider:
         case "azure":
             from app.llm.litellm_adapter import LiteLLMAdapter  # lazy — avoids loading litellm at startup
+
             _require_setting(settings.azure_openai_endpoint, "AZURE_OPENAI_ENDPOINT")
             _require_setting(settings.azure_openai_api_key, "AZURE_OPENAI_API_KEY")
             _require_setting(settings.azure_chat_deployment, "AZURE_CHAT_DEPLOYMENT")
@@ -50,6 +51,7 @@ def build_chat_client(settings: Settings) -> LLMPort:
 
         case "deepseek":
             from app.llm.litellm_adapter import LiteLLMAdapter  # lazy — avoids loading litellm at startup
+
             _require_setting(settings.deepseek_api_key, "DEEPSEEK_API_KEY")
             return LiteLLMAdapter(
                 chat_model=f"deepseek/{settings.deepseek_chat_model}",
@@ -65,9 +67,7 @@ def build_chat_client(settings: Settings) -> LLMPort:
 
         case "ollama" | _:
             if provider not in ("ollama",):
-                _logger.warning(
-                    "Unknown LLM_CHAT_PROVIDER=%r, falling back to 'ollama'", provider
-                )
+                _logger.warning("Unknown LLM_CHAT_PROVIDER=%r, falling back to 'ollama'", provider)
             return OllamaClient(host=settings.ollama_host)
 
 
@@ -79,6 +79,7 @@ def build_embed_client(settings: Settings) -> LLMPort:
     match provider:
         case "azure":
             from app.llm.litellm_adapter import LiteLLMAdapter  # lazy — avoids loading litellm at startup
+
             _require_setting(settings.azure_openai_endpoint, "AZURE_OPENAI_ENDPOINT")
             _require_setting(settings.azure_openai_api_key, "AZURE_OPENAI_API_KEY")
             _require_setting(settings.azure_embed_deployment, "AZURE_EMBED_DEPLOYMENT")
@@ -95,9 +96,7 @@ def build_embed_client(settings: Settings) -> LLMPort:
 
         case "ollama" | _:
             if provider not in ("ollama",):
-                _logger.warning(
-                    "Unknown LLM_EMBED_PROVIDER=%r, falling back to 'ollama'", provider
-                )
+                _logger.warning("Unknown LLM_EMBED_PROVIDER=%r, falling back to 'ollama'", provider)
             return OllamaClient(host=settings.ollama_host)
 
 
@@ -105,10 +104,8 @@ def build_embed_client(settings: Settings) -> LLMPort:
 # Internal helpers
 # ---------------------------------------------------------------------------
 
+
 def _require_setting(value: str, env_var: str) -> None:
     """Raise RuntimeError if *value* is empty (misconfigured env var)."""
     if not value.strip():
-        raise RuntimeError(
-            f"LLM provider configuration error: {env_var} is required but not set. "
-            f"Add it to your .env file."
-        )
+        raise RuntimeError(f"LLM provider configuration error: {env_var} is required but not set. Add it to your .env file.")
