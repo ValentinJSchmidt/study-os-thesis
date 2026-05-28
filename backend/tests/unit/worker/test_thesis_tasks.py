@@ -1,85 +1,72 @@
-"""Phase 4: Tests for thesis embedding Celery task.
+"""Tests for the thesis embedding Celery task.
 
-These tests will FAIL until app.theses.tasks is implemented.
+Covers two layers: the task wiring (delegates to the shared runner with the
+right config) and the actual unit of work (embeds title+abstract, sets the
+embedding, raises NotFound for a missing thesis).
 """
 
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from app.exceptions import NotFoundException
+from app.theses.tasks import _embed_thesis_work, embed_thesis
+
+
+def _acm(session):
+    cm = MagicMock()
+    cm.__aenter__ = AsyncMock(return_value=session)
+    cm.__aexit__ = AsyncMock(return_value=False)
+    return cm
+
 
 @pytest.mark.unit
-class TestEmbedThesisTask:
-    def test_calls_embed_with_title_and_abstract(self):
-        from app.theses.tasks import embed_thesis
+class TestEmbedThesisWiring:
+    def test_delegates_to_runner(self):
+        with patch("app.theses.tasks.execute_task") as ex:
+            ex.return_value = {"ok": 1}
+            out = embed_thesis(thesis_id=5, user_id=9, job_id="job-x")
 
-        with patch("app.theses.tasks.run_async") as mock_run, \
-             patch("app.theses.tasks._get_deps") as mock_deps:
-            mock_service = AsyncMock()
-            mock_deps.return_value = (mock_service, AsyncMock())
-            mock_run.side_effect = lambda coro: None  # run_async executes the coro
+        assert out == {"ok": 1}
+        kw = ex.call_args.kwargs
+        assert kw["job_id"] == "job-x"
+        assert kw["user_id"] == 9
+        assert kw["redis_url"]
+        assert callable(kw["work"])
+        # default success event / no started event for embedding tasks
+        assert "started_event" not in kw
 
-            # The task should call service to generate embedding
-            embed_thesis(thesis_id=1, user_id=1, job_id="job-123")
-            mock_run.assert_called_once()
 
-    def test_marks_job_success(self):
-        from app.theses.tasks import embed_thesis
+@pytest.mark.unit
+class TestEmbedThesisWork:
+    async def test_embeds_title_and_abstract(self):
+        session = AsyncMock()
+        thesis = SimpleNamespace(title="My Title", abstract="My Abstract", embedding=None)
+        repo = AsyncMock()
+        repo.get_by_id.return_value = thesis
+        embed_client = AsyncMock()
+        embed_client.embed.return_value = [0.1] * 8
+        settings = SimpleNamespace(ollama_embed_model="embed-model")
 
-        with patch("app.theses.tasks.run_async") as mock_run, \
-             patch("app.theses.tasks._get_deps") as mock_deps, \
-             patch("app.theses.tasks.publish_event") as mock_publish:
-            mock_run.return_value = None
-            mock_deps.return_value = (AsyncMock(), AsyncMock())
+        with patch("app.db.SessionLocal", return_value=_acm(session)), \
+             patch("app.theses.repository.ThesisRepository", return_value=repo), \
+             patch("app.llm.factory.build_embed_client", return_value=embed_client):
+            result = await _embed_thesis_work(1, settings)
 
-            embed_thesis(thesis_id=1, user_id=1, job_id="job-123")
+        embed_client.embed.assert_awaited_once_with("embed-model", "My Title\n\nMy Abstract")
+        assert thesis.embedding == [0.1] * 8
+        assert result == {"thesis_id": 1, "dim": 8}
+        session.commit.assert_awaited_once()
 
-            # Should publish a success event
-            if mock_publish.called:
-                call_kwargs = mock_publish.call_args.kwargs
-                assert call_kwargs.get("status") == "success" or \
-                       call_kwargs.get("event_type") == "task_complete"
+    async def test_missing_thesis_raises_not_found(self):
+        session = AsyncMock()
+        repo = AsyncMock()
+        repo.get_by_id.return_value = None
+        settings = SimpleNamespace(ollama_embed_model="m")
 
-    def test_marks_job_failure_on_error(self):
-        from app.theses.tasks import embed_thesis
-
-        with patch("app.theses.tasks.run_async") as mock_run, \
-             patch("app.theses.tasks._get_deps") as mock_deps, \
-             patch("app.theses.tasks.publish_event") as mock_publish:
-            mock_run.side_effect = Exception("LLM down")
-            mock_deps.return_value = (AsyncMock(), AsyncMock())
-
-            # Task should handle the error
-            try:
-                embed_thesis(thesis_id=1, user_id=1, job_id="job-123")
-            except Exception:
-                pass  # May or may not re-raise depending on retry logic
-
-    def test_retries_on_connection_error(self):
-        from app.theses.tasks import embed_thesis
-
-        with patch("app.theses.tasks.run_async") as mock_run, \
-             patch("app.theses.tasks._get_deps") as mock_deps:
-            mock_run.side_effect = ConnectionError("Connection refused")
-            mock_deps.return_value = (AsyncMock(), AsyncMock())
-
-            # Should trigger retry
-            try:
-                embed_thesis(thesis_id=1, user_id=1, job_id="job-123")
-            except (ConnectionError, Exception):
-                pass  # Expected - retry mechanism will handle it
-
-    def test_no_retry_on_not_found(self):
-        from app.theses.tasks import embed_thesis
-        from app.exceptions import NotFoundException
-
-        with patch("app.theses.tasks.run_async") as mock_run, \
-             patch("app.theses.tasks._get_deps") as mock_deps:
-            mock_run.side_effect = NotFoundException("Thesis", 999)
-            mock_deps.return_value = (AsyncMock(), AsyncMock())
-
-            # Should NOT retry, should fail permanently
-            try:
-                embed_thesis(thesis_id=999, user_id=1, job_id="job-123")
-            except NotFoundException:
-                pass  # Expected - permanent failure
+        with patch("app.db.SessionLocal", return_value=_acm(session)), \
+             patch("app.theses.repository.ThesisRepository", return_value=repo), \
+             patch("app.llm.factory.build_embed_client", return_value=AsyncMock()):
+            with pytest.raises(NotFoundException):
+                await _embed_thesis_work(999, settings)

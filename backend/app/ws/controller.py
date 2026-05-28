@@ -24,17 +24,20 @@ async def ws_job_updates(websocket: WebSocket) -> None:
 
     token = websocket.query_params.get("token")
     if not token:
+        await websocket.send_json({"error": "Missing token"})
         await websocket.close(code=4001, reason="Missing token")
         return
 
     payload = decode_access_token(token)
     if not payload or "sub" not in payload:
+        await websocket.send_json({"error": "Invalid token"})
         await websocket.close(code=4001, reason="Invalid token")
         return
 
     try:
         user_id = int(payload["sub"])
     except (ValueError, TypeError):
+        await websocket.send_json({"error": "Invalid token subject"})
         await websocket.close(code=4001, reason="Invalid token subject")
         return
 

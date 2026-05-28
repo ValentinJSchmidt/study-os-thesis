@@ -41,15 +41,16 @@ async def create_chair(
     """Create a chair and dispatch description embedding to a background worker."""
     from app.chairs.tasks import embed_chair_description
 
-    chair = await chair_service.create_chair(body)
+    # Persist the chair immediately; the worker embeds its description.
+    chair = await chair_service.create_chair(body, embed=False)
 
-    task_result = embed_chair_description.delay(chair.id, _admin.id, "pending")
     job = await job_service.create_job(
         type=JobType.embed_chair,
         user_id=_admin.id,
         input_data={"chair_id": chair.id},
-        celery_task_id=task_result.id,
     )
+    task_result = embed_chair_description.delay(chair.id, _admin.id, str(job.id))
+    await job_service.set_celery_task_id(job.id, task_result.id)
 
     out = ChairOut.model_validate(chair)
     return {**out.model_dump(mode="json"), "job_id": str(job.id)}
@@ -91,13 +92,13 @@ async def ingest_arxiv_paper(
     # Validate chair exists before dispatching
     await chair_service.get_chair(chair_id)
 
-    task_result = ingest_task.delay(chair_id, body.arxiv_id, _admin.id, "pending")
     job = await job_service.create_job(
         type=JobType.ingest_arxiv,
         user_id=_admin.id,
         input_data={"chair_id": chair_id, "arxiv_id": body.arxiv_id},
-        celery_task_id=task_result.id,
     )
+    task_result = ingest_task.delay(chair_id, body.arxiv_id, _admin.id, str(job.id))
+    await job_service.set_celery_task_id(job.id, task_result.id)
 
     return {"job_id": str(job.id), "chair_id": chair_id, "arxiv_id": body.arxiv_id}
 

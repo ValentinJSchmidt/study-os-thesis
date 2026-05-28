@@ -1,95 +1,97 @@
-"""Phase 4: Tests for chair-related Celery tasks.
+"""Tests for chair-related Celery tasks (ArXiv ingest + description embedding)."""
 
-These tests will FAIL until app.chairs.tasks is implemented.
-"""
-
-from unittest.mock import AsyncMock, patch
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from app.chairs.tasks import (
+    _embed_chair_work,
+    _ingest_arxiv_work,
+    embed_chair_description,
+    ingest_arxiv_paper,
+)
+from app.exceptions import AlreadyExistsException, NotFoundException
 
-@pytest.mark.unit
-class TestIngestArxivTask:
-    def test_calls_fetch_metadata(self):
-        from app.chairs.tasks import ingest_arxiv_paper
 
-        with patch("app.chairs.tasks.run_async") as mock_run, \
-             patch("app.chairs.tasks._get_deps") as mock_deps:
-            mock_run.return_value = None
-            mock_deps.return_value = (AsyncMock(), AsyncMock())
-
-            ingest_arxiv_paper(chair_id=1, arxiv_id="2301.07041", user_id=1, job_id="job-1")
-            mock_run.assert_called_once()
-
-    def test_marks_job_success(self):
-        from app.chairs.tasks import ingest_arxiv_paper
-
-        with patch("app.chairs.tasks.run_async") as mock_run, \
-             patch("app.chairs.tasks._get_deps") as mock_deps, \
-             patch("app.chairs.tasks.publish_event") as mock_publish:
-            mock_run.return_value = None
-            mock_deps.return_value = (AsyncMock(), AsyncMock())
-
-            ingest_arxiv_paper(chair_id=1, arxiv_id="2301.07041", user_id=1, job_id="job-1")
-
-            if mock_publish.called:
-                call_kwargs = mock_publish.call_args.kwargs
-                assert call_kwargs.get("status") == "success" or \
-                       call_kwargs.get("event_type") == "task_complete"
-
-    def test_duplicate_fails_permanently(self):
-        from app.chairs.tasks import ingest_arxiv_paper
-        from app.exceptions import AlreadyExistsException
-
-        with patch("app.chairs.tasks.run_async") as mock_run, \
-             patch("app.chairs.tasks._get_deps") as mock_deps:
-            mock_run.side_effect = AlreadyExistsException("ChairDocument", "arxiv_id", "2301.07041")
-            mock_deps.return_value = (AsyncMock(), AsyncMock())
-
-            try:
-                ingest_arxiv_paper(chair_id=1, arxiv_id="2301.07041", user_id=1, job_id="job-1")
-            except AlreadyExistsException:
-                pass
-
-    def test_retries_on_network_error(self):
-        from app.chairs.tasks import ingest_arxiv_paper
-
-        with patch("app.chairs.tasks.run_async") as mock_run, \
-             patch("app.chairs.tasks._get_deps") as mock_deps:
-            mock_run.side_effect = ConnectionError("Network error")
-            mock_deps.return_value = (AsyncMock(), AsyncMock())
-
-            try:
-                ingest_arxiv_paper(chair_id=1, arxiv_id="2301.07041", user_id=1, job_id="job-1")
-            except (ConnectionError, Exception):
-                pass
+def _acm(session):
+    cm = MagicMock()
+    cm.__aenter__ = AsyncMock(return_value=session)
+    cm.__aexit__ = AsyncMock(return_value=False)
+    return cm
 
 
 @pytest.mark.unit
-class TestEmbedChairDescriptionTask:
-    def test_embeds_text(self):
-        from app.chairs.tasks import embed_chair_description
+class TestIngestArxivWiring:
+    def test_treats_duplicate_and_missing_as_permanent(self):
+        with patch("app.chairs.tasks.execute_task") as ex:
+            ingest_arxiv_paper(chair_id=1, arxiv_id="2301.07041", user_id=3, job_id="j")
 
-        with patch("app.chairs.tasks.run_async") as mock_run, \
-             patch("app.chairs.tasks._get_deps") as mock_deps:
-            mock_run.return_value = None
-            mock_deps.return_value = (AsyncMock(), AsyncMock())
+        permanent = ex.call_args.kwargs["permanent_exceptions"]
+        assert AlreadyExistsException in permanent
+        assert NotFoundException in permanent
 
-            embed_chair_description(chair_id=1, user_id=1, job_id="job-1")
-            mock_run.assert_called_once()
 
-    def test_marks_job_success(self):
-        from app.chairs.tasks import embed_chair_description
+@pytest.mark.unit
+class TestEmbedChairWiring:
+    def test_delegates_to_runner(self):
+        with patch("app.chairs.tasks.execute_task") as ex:
+            embed_chair_description(chair_id=1, user_id=3, job_id="j")
+        assert ex.call_args.kwargs["job_id"] == "j"
+        assert callable(ex.call_args.kwargs["work"])
 
-        with patch("app.chairs.tasks.run_async") as mock_run, \
-             patch("app.chairs.tasks._get_deps") as mock_deps, \
-             patch("app.chairs.tasks.publish_event") as mock_publish:
-            mock_run.return_value = None
-            mock_deps.return_value = (AsyncMock(), AsyncMock())
 
-            embed_chair_description(chair_id=1, user_id=1, job_id="job-1")
+@pytest.mark.unit
+class TestIngestArxivWork:
+    async def test_calls_service_and_returns_doc(self):
+        session = AsyncMock()
+        svc = AsyncMock()
+        svc.ingest_arxiv_paper.return_value = SimpleNamespace(id=42, title="Paper")
+        settings = SimpleNamespace(ollama_embed_model="m")
 
-            if mock_publish.called:
-                call_kwargs = mock_publish.call_args.kwargs
-                assert call_kwargs.get("status") == "success" or \
-                       call_kwargs.get("event_type") == "task_complete"
+        with patch("app.db.SessionLocal", return_value=_acm(session)), \
+             patch("app.chairs.repository.ChairRepository", return_value=AsyncMock()), \
+             patch("app.chairs.service.ChairService", return_value=svc), \
+             patch("app.llm.factory.build_embed_client", return_value=AsyncMock()):
+            result = await _ingest_arxiv_work(1, "2301.07041", settings)
+
+        svc.ingest_arxiv_paper.assert_awaited_once()
+        assert result == {"document_id": 42, "title": "Paper"}
+
+
+@pytest.mark.unit
+class TestEmbedChairWork:
+    async def test_stores_description_document(self):
+        session = AsyncMock()
+        chair = SimpleNamespace(short_description="A research chair.")
+        repo = AsyncMock()
+        repo.get_by_id.return_value = chair
+        embed_client = AsyncMock()
+        embed_client.embed.return_value = [0.2] * 4
+        settings = SimpleNamespace(ollama_embed_model="m")
+
+        with patch("app.db.SessionLocal", return_value=_acm(session)), \
+             patch("app.chairs.repository.ChairRepository", return_value=repo), \
+             patch("app.llm.factory.build_embed_client", return_value=embed_client):
+            from app.models.chair import ChairDocumentKind
+
+            result = await _embed_chair_work(1, settings)
+
+        repo.add_document.assert_awaited_once()
+        kw = repo.add_document.call_args.kwargs
+        assert kw["kind"] == ChairDocumentKind.description
+        assert kw["content"] == "A research chair."
+        assert kw["embedding"] == [0.2] * 4
+        assert result == {"chair_id": 1}
+
+    async def test_missing_chair_raises_not_found(self):
+        session = AsyncMock()
+        repo = AsyncMock()
+        repo.get_by_id.return_value = None
+        settings = SimpleNamespace(ollama_embed_model="m")
+
+        with patch("app.db.SessionLocal", return_value=_acm(session)), \
+             patch("app.chairs.repository.ChairRepository", return_value=repo), \
+             patch("app.llm.factory.build_embed_client", return_value=AsyncMock()):
+            with pytest.raises(NotFoundException):
+                await _embed_chair_work(404, settings)

@@ -1,20 +1,44 @@
 # Refactoring State: API/Worker Separation
 
-Last updated: 2026-05-28
+Last updated: 2026-05-28 (P0 items resolved — see "P0 Resolution" below)
 
 ## Overall Status
 
 | Phase | Description | Status | Tests |
 |---|---|---|---|
-| 1 | Infrastructure (Redis, Celery app, config, utils, publisher) | **Done** | 17/17 passing |
-| 2 | Jobs table & domain (model, service, repository, schemas, controller) | **Done** (migration not yet generated) | 19/19 passing |
-| 3 | WebSocket layer (manager, listener, controller, lifespan) | **Done** (2 e2e tests hanging — see Known Issues) | 12/12 unit passing, 2 e2e blocked |
-| 4 | Migrate ingestion tasks (theses, chairs, students) | **Done** | 16/16 task tests passing, 12/12 e2e passing |
-| 5 | Migrate chat agent loop | **Done** | 6/6 task tests passing, 5/5 e2e passing |
-| 6 | Retry policies & timeouts | **Done** | 10/10 passing |
-| 7 | Regression tests (existing service logic) | **Done** | 68/68 passing |
+| 1 | Infrastructure (Redis, Celery app, config, utils, publisher) | **Done** | passing |
+| 2 | Jobs table & domain (model, service, repository, schemas, controller) | **Done** (migration 0009 generated & applied) | passing |
+| 3 | WebSocket layer (manager, listener, controller, lifespan) | **Done** (e2e tests fixed — no longer hang) | passing |
+| 4 | Migrate ingestion tasks (theses, chairs, students) | **Done** (tasks now drive the jobs table) | passing |
+| 5 | Migrate chat agent loop | **Done** | passing |
+| 6 | Retry policies & timeouts | **Done** (incl. dead-letter on exhausted retries) | passing |
+| 7 | Regression tests (existing service logic) | **Done** | passing |
 
-**Total: 173 tests collected. 171 passing, 2 hanging (WebSocket e2e).**
+**Total: 178 tests, all passing (including the 2 previously-hanging WebSocket e2e tests).**
+
+## P0 Resolution (2026-05-28)
+
+All P0 items from the Gap Analysis below have been fixed and verified end-to-end
+against real Postgres + Redis + a live Celery worker:
+
+1. **Double-embedding removed** — `ThesisService.create_thesis(..., embed=False)` and
+   `ChairService.create_chair(..., embed=False)` skip inline embedding; the worker does it.
+2. **Tasks update the jobs table** — a shared lifecycle runner (`app/worker/task_runner.py`)
+   drives `pending → started → success/failure/retry` via `app/worker/job_status.py`.
+   Verified: a dispatched task moved a real job row `pending → started → failure`.
+3. **`job_id` ordering fixed** — controllers create the job first, dispatch with the real
+   `str(job.id)`, then attach `celery_task_id` (`JobService.set_celery_task_id`).
+4. **Migration 0009 generated** — `alembic/versions/0009_add_jobs_table.py` (hand-trimmed to
+   drop spurious autogen diffs); upgrade/downgrade round-trip verified.
+5. **`worker_process_init`** — disposes the inherited engine and rebuilds it with `NullPool`
+   so per-task event loops don't share connections (fixes cross-loop asyncpg errors).
+6. **WebSocket e2e tests** — controller sends a JSON error before `close()`; tests assert on it.
+7. **PDF bytes storage** — `app/students/pdf_store.py` stashes the upload in Redis (1h TTL)
+   keyed by job id; the worker fetches/deletes it.
+
+Dead-letter handling (P1 #10) is also done: exhausted retries mark the job `failure`.
+Remaining open items: P1 #8 (chat controller private `_chat_repo` access), P1 #9
+(per-iteration chat streaming), and the P2 follow-ups (frontend WS client, integration tests).
 
 ---
 
@@ -38,6 +62,9 @@ uv run pytest tests/ --ignore=tests/e2e/test_ws_endpoints.py -v
 ---
 
 ## Known Issues
+
+> **Note (2026-05-28):** The issues in this section have been **resolved** — see
+> "P0 Resolution" near the top. The text below is retained as historical context.
 
 ### 1. WebSocket e2e tests hang (`tests/e2e/test_ws_endpoints.py`)
 

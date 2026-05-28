@@ -90,6 +90,25 @@ class TestCreateChair:
         call_kwargs = mock_chair_repo.add_document.call_args.kwargs
         assert call_kwargs["embedding"] is None
 
+    async def test_embed_false_skips_embedding_and_document(
+        self, chair_service, mock_chair_repo, mock_llm_embed
+    ):
+        """With embed=False the worker creates the description document instead."""
+        chair = _make_chair()
+        mock_chair_repo.create.return_value = chair
+        mock_chair_repo.get_by_id.return_value = chair
+
+        data = ChairCreate(
+            name="Chair",
+            short_description="Description that is long enough for validation.",
+            professor_name="Prof.",
+        )
+        await chair_service.create_chair(data, embed=False)
+
+        mock_llm_embed.embed.assert_not_called()
+        mock_chair_repo.add_document.assert_not_called()
+        mock_chair_repo.commit.assert_called_once()
+
 
 @pytest.mark.unit
 class TestIngestArxiv:

@@ -213,3 +213,24 @@ class TestListJobs:
         call_kwargs = mock_job_repo.list_by_user.call_args
         assert call_kwargs.kwargs.get("status") == JobStatus.pending or \
                (len(call_kwargs.args) > 2 and call_kwargs.args[2] == JobStatus.pending)
+
+
+@pytest.mark.unit
+class TestSetCeleryTaskId:
+    async def test_updates_task_id(self, job_service, mock_job_repo):
+        job = _make_job(celery_task_id=None)
+        mock_job_repo.get_by_id.return_value = job
+        mock_job_repo.update.return_value = job
+
+        await job_service.set_celery_task_id(job.id, "celery-xyz")
+
+        mock_job_repo.update.assert_called_once()
+        assert mock_job_repo.update.call_args.kwargs["celery_task_id"] == "celery-xyz"
+
+    async def test_missing_job_raises(self, job_service, mock_job_repo):
+        from app.exceptions import NotFoundException
+
+        mock_job_repo.get_by_id.return_value = None
+
+        with pytest.raises(NotFoundException):
+            await job_service.set_celery_task_id(uuid.uuid4(), "celery-xyz")

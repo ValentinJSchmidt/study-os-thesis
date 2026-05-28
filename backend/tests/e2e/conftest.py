@@ -187,12 +187,17 @@ def _override_deps(_app):
 
 @pytest.fixture
 def _celery_patch():
-    """Patch all Celery .delay() calls so tasks don't actually run."""
+    """Patch all Celery .delay() calls so tasks don't actually run.
+
+    Also patches the transcript PDF store so e2e tests don't require a live
+    Redis instance.
+    """
     with patch("app.theses.tasks.embed_thesis.delay", return_value=_mock_celery_task()) as t, \
          patch("app.chairs.tasks.embed_chair_description.delay", return_value=_mock_celery_task()) as c1, \
          patch("app.chairs.tasks.ingest_arxiv_paper.delay", return_value=_mock_celery_task()) as c2, \
          patch("app.students.tasks.parse_transcript.delay", return_value=_mock_celery_task()) as s, \
-         patch("app.chat.tasks.process_chat_turn.delay", return_value=_mock_celery_task()) as ch:
+         patch("app.chat.tasks.process_chat_turn.delay", return_value=_mock_celery_task()) as ch, \
+         patch("app.students.pdf_store.store_pdf", new=AsyncMock()):
         yield {
             "embed_thesis": t,
             "embed_chair_description": c1,

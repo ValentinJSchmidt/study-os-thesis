@@ -22,17 +22,17 @@ async def create_thesis(
     """Create a thesis and dispatch embedding to a background worker."""
     from app.theses.tasks import embed_thesis
 
-    # Persist thesis immediately (without embedding)
-    thesis = await thesis_service.create_thesis(body, user)
+    # Persist thesis immediately; the worker generates the embedding.
+    thesis = await thesis_service.create_thesis(body, user, embed=False)
 
-    # Create a job and dispatch embedding to worker
-    task_result = embed_thesis.delay(thesis.id, user.id, "pending")
+    # Create the job first so the worker receives the real job id.
     job = await job_service.create_job(
         type=JobType.embed_thesis,
         user_id=user.id,
         input_data={"thesis_id": thesis.id},
-        celery_task_id=task_result.id,
     )
+    task_result = embed_thesis.delay(thesis.id, user.id, str(job.id))
+    await job_service.set_celery_task_id(job.id, task_result.id)
 
     out = ThesisOut.model_validate(thesis)
     return {**out.model_dump(mode="json"), "job_id": str(job.id)}

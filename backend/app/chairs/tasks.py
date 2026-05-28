@@ -3,39 +3,56 @@
 from __future__ import annotations
 
 import logging
-import traceback
 from typing import Any
 
 from app.exceptions import AlreadyExistsException, NotFoundException
 from app.worker.celery_app import celery_app
-from app.worker.publisher import publish_event
-from app.worker.utils import run_async
+from app.worker.task_runner import execute_task
 
 logger = logging.getLogger(__name__)
 
 
-def _get_deps() -> tuple[Any, Any]:
-    """Build service and job-service instances for use inside a task."""
-    from app.config import get_settings
-    from app.db import SessionLocal
+async def _ingest_arxiv_work(chair_id: int, arxiv_id: str, settings: Any) -> dict:
     from app.chairs.repository import ChairRepository
+    from app.chairs.schemas import ArxivIngestRequest
     from app.chairs.service import ChairService
-    from app.jobs.repository import JobRepository
-    from app.jobs.service import JobService
+    from app.db import SessionLocal
     from app.llm.factory import build_embed_client
 
-    settings = get_settings()
-
-    async def _build():
-        session = SessionLocal()
-        chair_repo = ChairRepository(session)
+    async with SessionLocal() as session:
+        repo = ChairRepository(session)
         embed_client = build_embed_client(settings)
-        svc = ChairService(chair_repo, embed_client, settings)
-        job_repo = JobRepository(session)
-        job_svc = JobService(job_repo)
-        return svc, job_svc
+        svc = ChairService(repo, embed_client, settings)
+        doc = await svc.ingest_arxiv_paper(chair_id, ArxivIngestRequest(arxiv_id=arxiv_id))
+        return {"document_id": doc.id, "title": doc.title}
 
-    return run_async(_build())
+
+async def _embed_chair_work(chair_id: int, settings: Any) -> dict:
+    from app.chairs.repository import ChairRepository
+    from app.db import SessionLocal
+    from app.llm.factory import build_embed_client
+    from app.models.chair import ChairDocumentKind
+
+    async with SessionLocal() as session:
+        repo = ChairRepository(session)
+        chair = await repo.get_by_id(chair_id)
+        if chair is None:
+            raise NotFoundException("Chair", chair_id)
+        embed_client = build_embed_client(settings)
+        try:
+            embedding = await embed_client.embed(
+                settings.ollama_embed_model, chair.short_description
+            )
+        except Exception:
+            embedding = None
+        await repo.add_document(
+            chair_id=chair_id,
+            kind=ChairDocumentKind.description,
+            content=chair.short_description,
+            embedding=embedding,
+        )
+        await repo.commit()
+        return {"chair_id": chair_id}
 
 
 @celery_app.task(
@@ -51,64 +68,20 @@ def ingest_arxiv_paper(
 ) -> dict:
     """Fetch an ArXiv paper, embed its abstract, and store it."""
     from app.config import get_settings
-    from app.chairs.schemas import ArxivIngestRequest
 
     settings = get_settings()
-    logger.info("ingest_arxiv_paper: chair_id=%d arxiv_id=%s job_id=%s", chair_id, arxiv_id, job_id)
+    logger.info(
+        "ingest_arxiv_paper: chair_id=%d arxiv_id=%s job_id=%s", chair_id, arxiv_id, job_id
+    )
 
-    async def _inner():
-        from app.db import SessionLocal
-        from app.chairs.repository import ChairRepository
-        from app.chairs.service import ChairService
-        from app.llm.factory import build_embed_client
-
-        async with SessionLocal() as session:
-            repo = ChairRepository(session)
-            embed_client = build_embed_client(settings)
-            svc = ChairService(repo, embed_client, settings)
-            req = ArxivIngestRequest(arxiv_id=arxiv_id)
-            doc = await svc.ingest_arxiv_paper(chair_id, req)
-            return {"document_id": doc.id, "title": doc.title}
-
-    try:
-        result = run_async(_inner())
-        publish_event(
-            settings.redis_url,
-            event_type="task_complete",
-            job_id=job_id,
-            user_id=user_id,
-            status="success",
-            data=result,
-        )
-        return result
-    except (NotFoundException, AlreadyExistsException):
-        publish_event(
-            settings.redis_url,
-            event_type="task_failed",
-            job_id=job_id,
-            user_id=user_id,
-            status="failure",
-        )
-        raise
-    except (ConnectionError, TimeoutError, OSError) as exc:
-        publish_event(
-            settings.redis_url,
-            event_type="task_failed",
-            job_id=job_id,
-            user_id=user_id,
-            status="retry",
-        )
-        raise self.retry(exc=exc)
-    except Exception:
-        publish_event(
-            settings.redis_url,
-            event_type="task_failed",
-            job_id=job_id,
-            user_id=user_id,
-            status="failure",
-            data={"error": traceback.format_exc()[:500]},
-        )
-        raise
+    return execute_task(
+        self,
+        job_id=job_id,
+        user_id=user_id,
+        redis_url=settings.redis_url,
+        work=lambda: _ingest_arxiv_work(chair_id, arxiv_id, settings),
+        permanent_exceptions=(NotFoundException, AlreadyExistsException),
+    )
 
 
 @celery_app.task(
@@ -126,62 +99,10 @@ def embed_chair_description(self: Any, chair_id: int, user_id: int, job_id: str)
     settings = get_settings()
     logger.info("embed_chair_description: chair_id=%d job_id=%s", chair_id, job_id)
 
-    async def _inner():
-        from app.db import SessionLocal
-        from app.chairs.repository import ChairRepository
-        from app.llm.factory import build_embed_client
-        from app.models.chair import ChairDocumentKind
-
-        async with SessionLocal() as session:
-            repo = ChairRepository(session)
-            chair = await repo.get_by_id(chair_id)
-            if chair is None:
-                raise NotFoundException("Chair", chair_id)
-            embed_client = build_embed_client(settings)
-            try:
-                embedding = await embed_client.embed(
-                    settings.ollama_embed_model, chair.short_description
-                )
-            except Exception:
-                embedding = None
-            await repo.add_document(
-                chair_id=chair_id,
-                kind=ChairDocumentKind.description,
-                content=chair.short_description,
-                embedding=embedding,
-            )
-            await repo.commit()
-            return {"chair_id": chair_id}
-
-    try:
-        result = run_async(_inner())
-        publish_event(
-            settings.redis_url,
-            event_type="task_complete",
-            job_id=job_id,
-            user_id=user_id,
-            status="success",
-            data=result,
-        )
-        return result
-    except NotFoundException:
-        publish_event(
-            settings.redis_url,
-            event_type="task_failed",
-            job_id=job_id,
-            user_id=user_id,
-            status="failure",
-        )
-        raise
-    except (ConnectionError, TimeoutError, OSError) as exc:
-        raise self.retry(exc=exc)
-    except Exception:
-        publish_event(
-            settings.redis_url,
-            event_type="task_failed",
-            job_id=job_id,
-            user_id=user_id,
-            status="failure",
-            data={"error": traceback.format_exc()[:500]},
-        )
-        raise
+    return execute_task(
+        self,
+        job_id=job_id,
+        user_id=user_id,
+        redis_url=settings.redis_url,
+        work=lambda: _embed_chair_work(chair_id, settings),
+    )

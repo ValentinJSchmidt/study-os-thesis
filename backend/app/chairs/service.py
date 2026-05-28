@@ -33,7 +33,7 @@ class ChairService:
     # Chair CRUD
     # ------------------------------------------------------------------
 
-    async def create_chair(self, data: ChairCreate) -> Chair:
+    async def create_chair(self, data: ChairCreate, *, embed: bool = True) -> Chair:
         _logger.info("Creating chair: name=%r professor=%r", data.name, data.professor_name)
         chair = await self._chair_repo.create(
             name=data.name,
@@ -42,14 +42,15 @@ class ChairService:
             professor_user_id=data.professor_user_id,
             website_url=data.website_url,
         )
-        _logger.info("Chair created: id=%d — embedding description document", chair.id)
-        embedding = await self._embed_text(data.short_description)
-        await self._chair_repo.add_document(
-            chair_id=chair.id,
-            kind=ChairDocumentKind.description,
-            content=data.short_description,
-            embedding=embedding,
-        )
+        if embed:
+            _logger.info("Chair created: id=%d — embedding description document", chair.id)
+            embedding = await self._embed_text(data.short_description)
+            await self._chair_repo.add_document(
+                chair_id=chair.id,
+                kind=ChairDocumentKind.description,
+                content=data.short_description,
+                embedding=embedding,
+            )
         await self._chair_repo.commit()
         _logger.info("Chair id=%d committed to DB", chair.id)
         return await self._chair_repo.get_by_id(chair.id, load_documents=True)  # type: ignore[return-value]

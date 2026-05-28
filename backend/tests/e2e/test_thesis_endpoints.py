@@ -40,6 +40,24 @@ class TestCreateThesis:
 
         assert response.status_code == 201
 
+    async def test_dispatches_with_real_job_id(self, admin_client, _celery_patch):
+        """The task must receive the real job id, not a 'pending' placeholder."""
+        import uuid
+
+        response = await admin_client.post("/api/theses", json={
+            "title": "Real Job Id Test",
+            "abstract": "A sufficiently long abstract for validation purposes.",
+        })
+
+        assert response.status_code == 201
+        job_id = response.json()["job_id"]
+
+        delay = _celery_patch["embed_thesis"]
+        passed_job_id = delay.call_args.args[2]
+        assert passed_job_id != "pending"
+        uuid.UUID(passed_job_id)  # must be a valid UUID string
+        assert passed_job_id == job_id
+
     async def test_validates_title_min_length(self, admin_client):
         response = await admin_client.post("/api/theses", json={
             "title": "AB",

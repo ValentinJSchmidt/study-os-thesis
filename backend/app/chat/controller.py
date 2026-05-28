@@ -56,17 +56,17 @@ async def send_message(
         from app.exceptions import NotFoundException
         raise NotFoundException("Session", session_id)
 
-    task_result = process_chat_turn.delay(
-        session_id=session_id,
-        user_id=user.id,
-        content=body.content,
-        job_id="pending",
-    )
     job = await job_service.create_job(
         type=JobType.chat_turn,
         user_id=user.id,
         input_data={"session_id": session_id, "content": body.content[:200]},
-        celery_task_id=task_result.id,
     )
+    task_result = process_chat_turn.delay(
+        session_id=session_id,
+        user_id=user.id,
+        content=body.content,
+        job_id=str(job.id),
+    )
+    await job_service.set_celery_task_id(job.id, task_result.id)
 
     return {"job_id": str(job.id), "session_id": session_id}

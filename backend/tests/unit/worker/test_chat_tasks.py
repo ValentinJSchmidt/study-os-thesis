@@ -1,97 +1,49 @@
-"""Phase 5: Tests for chat agent loop Celery task.
+"""Tests for the chat agent loop Celery task."""
 
-These tests will FAIL until app.chat.tasks is implemented.
-"""
-
-from unittest.mock import AsyncMock, patch
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from app.chat.tasks import _process_chat_turn_work, process_chat_turn
+
+
+def _acm(session):
+    cm = MagicMock()
+    cm.__aenter__ = AsyncMock(return_value=session)
+    cm.__aexit__ = AsyncMock(return_value=False)
+    return cm
+
 
 @pytest.mark.unit
-class TestProcessChatTurnTask:
-    def test_loads_history(self):
-        from app.chat.tasks import process_chat_turn
+class TestProcessChatTurnWiring:
+    def test_uses_chat_event_names(self):
+        with patch("app.chat.tasks.execute_task") as ex:
+            process_chat_turn(session_id=2, user_id=1, content="Hi", job_id="j")
 
-        with patch("app.chat.tasks.run_async") as mock_run, \
-             patch("app.chat.tasks._get_deps") as mock_deps:
-            mock_run.return_value = None
-            mock_deps.return_value = (AsyncMock(), AsyncMock())
+        kw = ex.call_args.kwargs
+        assert kw["success_event"] == "chat_turn_completed"
+        assert kw["started_event"] == "chat_turn_started"
+        assert kw["started_data"] == {"session_id": 2}
 
-            process_chat_turn(session_id=1, user_id=1, content="Hello", job_id="job-1")
-            mock_run.assert_called_once()
 
-    def test_no_tool_calls_succeeds(self):
-        from app.chat.tasks import process_chat_turn
+@pytest.mark.unit
+class TestProcessChatTurnWork:
+    async def test_runs_agent_and_counts_messages(self):
+        session = AsyncMock()
+        svc = AsyncMock()
+        svc.send_message.return_value = ["m1", "m2", "m3"]
+        settings = SimpleNamespace(ollama_embed_model="m")
 
-        with patch("app.chat.tasks.run_async") as mock_run, \
-             patch("app.chat.tasks._get_deps") as mock_deps, \
-             patch("app.chat.tasks.publish_event") as mock_publish:
-            mock_run.return_value = None
-            mock_deps.return_value = (AsyncMock(), AsyncMock())
+        with patch("app.db.SessionLocal", return_value=_acm(session)), \
+             patch("app.chat.repository.ChatRepository", return_value=AsyncMock()), \
+             patch("app.students.repository.StudentRepository", return_value=AsyncMock()), \
+             patch("app.chairs.repository.ChairRepository", return_value=AsyncMock()), \
+             patch("app.theses.repository.ThesisRepository", return_value=AsyncMock()), \
+             patch("app.chat.service.ChatService", return_value=svc), \
+             patch("app.llm.factory.build_chat_client", return_value=AsyncMock()), \
+             patch("app.llm.factory.build_embed_client", return_value=AsyncMock()):
+            result = await _process_chat_turn_work(2, 1, "Hello", settings)
 
-            process_chat_turn(session_id=1, user_id=1, content="Hello", job_id="job-1")
-
-            # Should publish at minimum a completion event
-            assert mock_publish.called
-
-    def test_publishes_turn_started(self):
-        from app.chat.tasks import process_chat_turn
-
-        with patch("app.chat.tasks.run_async") as mock_run, \
-             patch("app.chat.tasks._get_deps") as mock_deps, \
-             patch("app.chat.tasks.publish_event") as mock_publish:
-            mock_run.return_value = None
-            mock_deps.return_value = (AsyncMock(), AsyncMock())
-
-            process_chat_turn(session_id=1, user_id=1, content="Hello", job_id="job-1")
-
-            # Look for a turn_started event
-            event_types = [c.kwargs.get("event_type", "") for c in mock_publish.call_args_list]
-            assert "chat_turn_started" in event_types
-
-    def test_publishes_turn_completed(self):
-        from app.chat.tasks import process_chat_turn
-
-        with patch("app.chat.tasks.run_async") as mock_run, \
-             patch("app.chat.tasks._get_deps") as mock_deps, \
-             patch("app.chat.tasks.publish_event") as mock_publish:
-            mock_run.return_value = None
-            mock_deps.return_value = (AsyncMock(), AsyncMock())
-
-            process_chat_turn(session_id=1, user_id=1, content="Hello", job_id="job-1")
-
-            event_types = [c.kwargs.get("event_type", "") for c in mock_publish.call_args_list]
-            assert "chat_turn_completed" in event_types
-
-    def test_marks_job_failure_on_llm_error(self):
-        from app.chat.tasks import process_chat_turn
-
-        with patch("app.chat.tasks.run_async") as mock_run, \
-             patch("app.chat.tasks._get_deps") as mock_deps, \
-             patch("app.chat.tasks.publish_event") as mock_publish:
-            mock_run.side_effect = Exception("LLM error")
-            mock_deps.return_value = (AsyncMock(), AsyncMock())
-
-            try:
-                process_chat_turn(session_id=1, user_id=1, content="Hello", job_id="job-1")
-            except Exception:
-                pass
-
-            # Should publish failure event
-            if mock_publish.called:
-                event_types = [c.kwargs.get("event_type", "") for c in mock_publish.call_args_list]
-                assert "task_failed" in event_types or any("fail" in et for et in event_types)
-
-    def test_retries_on_connection_error(self):
-        from app.chat.tasks import process_chat_turn
-
-        with patch("app.chat.tasks.run_async") as mock_run, \
-             patch("app.chat.tasks._get_deps") as mock_deps:
-            mock_run.side_effect = ConnectionError("Network error")
-            mock_deps.return_value = (AsyncMock(), AsyncMock())
-
-            try:
-                process_chat_turn(session_id=1, user_id=1, content="Hello", job_id="job-1")
-            except (ConnectionError, Exception):
-                pass
+        svc.send_message.assert_awaited_once_with(2, 1, "Hello")
+        assert result == {"session_id": 2, "message_count": 3}

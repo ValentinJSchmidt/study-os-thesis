@@ -64,6 +64,12 @@ class JobService:
             completed_at=datetime.now(timezone.utc),
         )
 
+    async def set_celery_task_id(self, job_id: uuid.UUID, celery_task_id: str) -> Job:
+        job = await self._repo.get_by_id(job_id)
+        if job is None:
+            raise NotFoundException("Job", str(job_id))
+        return await self._repo.update(job, celery_task_id=celery_task_id)
+
     async def mark_retry(self, job_id: uuid.UUID) -> Job:
         job = await self._repo.get_by_id(job_id)
         if job is None:

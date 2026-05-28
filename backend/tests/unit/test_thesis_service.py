@@ -101,6 +101,18 @@ class TestCreateThesis:
         mock_thesis_repo.create.assert_called_once()
         mock_thesis_repo.commit.assert_called_once()
 
+    async def test_embed_false_skips_embedding(
+        self, thesis_service, mock_llm_embed, mock_thesis_repo, fake_admin
+    ):
+        """With embed=False the controller defers embedding to the worker."""
+        mock_thesis_repo.create.return_value = _make_thesis()
+        data = ThesisCreate(title="Title Here", abstract="Abstract text long enough.")
+
+        await thesis_service.create_thesis(data, fake_admin, embed=False)
+
+        mock_llm_embed.embed.assert_not_called()
+        assert mock_thesis_repo.create.call_args.kwargs["embedding"] is None
+
 
 @pytest.mark.unit
 class TestListTheses:
