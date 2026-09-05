@@ -20,18 +20,6 @@ SCANNED_DIRS = (
     REPO_ROOT / ".claude" / "skills",
     REPO_ROOT / ".codex" / "skills",
 )
-PUBLIC_SKILLS = {
-    "build-student-profile",
-    "design-agent-skill",
-    "discover-company-candidates",
-    "discover-university-candidates",
-    "draft-thesis-contact",
-    "find-company-thesis-options",
-    "find-recent-papers",
-    "find-university-chairs",
-    "generate-thesis-directions",
-    "thesis-finder",
-}
 INTERNAL_SKILLS = {
     "create-thesis-sim-student",
     "run-thesis-simulations",
@@ -56,10 +44,16 @@ def _discovered_skills() -> dict[str, list[Path]]:
     return found
 
 
+def _public_skills() -> set[str]:
+    """The published package, as pinned by test_skill_package.py."""
+    skills_dir = REPO_ROOT / "skills"
+    return {path.name for path in skills_dir.iterdir() if path.is_dir() and path.name != "tests" and (path / "SKILL.md").is_file()}
+
+
 def test_installer_offers_exactly_the_public_skills() -> None:
     offered = {name for name, skill_mds in _discovered_skills().items() if any(not INTERNAL_MARKER.search(_frontmatter(skill_md)) for skill_md in skill_mds)}
 
-    assert offered == PUBLIC_SKILLS
+    assert offered == _public_skills()
 
 
 def test_maintainer_skills_are_marked_internal() -> None:
