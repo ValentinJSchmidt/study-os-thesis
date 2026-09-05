@@ -274,6 +274,23 @@ swept. Not all six need to complete for a defensible thesis submission — see t
 
 ## Log
 
+- **2026-09-05** — **`npx skills` install path cleaned up after Beat's feedback.**
+  Beat's mail called the install instructions far too long and asked us to use
+  <https://github.com/vercel-labs/skills> for all local agents. The one-command route
+  already existed (INSTALL.md Route C, Step 0) but was dirty: the CLI also scans
+  `.claude/skills/` and `.codex/skills/`, so it found **12** skills — the ten public ones
+  plus the repo-internal `create-thesis-sim-student` and `run-thesis-simulations`, which
+  `--skill '*'` happily installed into a student's client. Marked both (in each agent
+  directory) with `metadata.internal: true`, which the CLI honours for the picker *and*
+  the `'*'` wildcard (`src/skills.ts`, `src/add.ts` in vercel-labs/skills); the key is
+  part of the Agent Skills frontmatter spec, so both skills still load repo-locally.
+  Verified end-to-end: `npx skills@latest add <repo> --list` now reports exactly 10, and
+  a real `--skill '*' --agent claude-code` install produces ten skill folders with their
+  `references/` intact. Added `skills/tests/test_skills_cli_install.py` (fails if a
+  maintainer skill loses the flag) and extended `qa.yml`'s path filter to the two agent
+  skill directories. INSTALL.md itself untouched — shortening it is a separate call.
+  Branch `feat/skills-cli-install`.
+
 - **2026-07-05** — **Independent 1.0-readiness review completed and actioned; project
   re-paused with Phase 5 fully scoped.** Ran a from-scratch, deliberately skeptical review
   (`findings/no_db_universal_skill/2026-07-05-fable-1.0-readiness-review.md`) assessing
