@@ -1,6 +1,8 @@
 ---
 name: create-thesis-sim-student
 description: Create new repo-local thesis-finder simulation student commands. Use when asked to add, scaffold, draft, or generate a new simulated thesis-finder student persona for Claude and Codex.
+metadata:
+  internal: true
 ---
 
 # Create Thesis Simulation Student

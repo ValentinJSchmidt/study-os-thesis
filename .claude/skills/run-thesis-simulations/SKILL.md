@@ -1,6 +1,8 @@
 ---
 name: run-thesis-simulations
 description: Run and evaluate all repo-local thesis-finder simulation commands. Use when asked to run the thesis simulation suite, evaluate thesis-finder personas, execute all thesis-sim commands, or produce conversation and rating artifacts.
+metadata:
+  internal: true
 ---
 
 # Run Thesis Simulations
