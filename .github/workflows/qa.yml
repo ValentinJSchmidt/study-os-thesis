@@ -5,6 +5,8 @@ on:
   pull_request:
     paths:
       - 'skills/**'
+      - '.claude/skills/**'
+      - '.codex/skills/**'
       - 'scripts/**'
       - 'pyproject.toml'
       - '.github/workflows/qa.yml'
